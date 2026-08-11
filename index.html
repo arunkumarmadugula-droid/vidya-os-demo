@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#080a0f">
+  <meta name="description" content="Vidya is a private personal intelligence system for work, learning, memory and culture.">
+  <title>Vidya — Personal Intelligence</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon-180.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="app-shell" id="appShell">
+    <aside class="side-rail" aria-label="Primary navigation">
+      <button class="wordmark" data-nav="brief" aria-label="Go to Brief"><span>V</span><b>Vidya</b></button>
+      <nav class="rail-nav">
+        <button class="nav-item is-active" data-nav="brief" aria-current="page"><span class="nav-icon">⌂</span><span>Brief</span></button>
+        <button class="nav-item" data-nav="today"><span class="nav-icon">✓</span><span>Today</span><span class="nav-count" id="railTaskCount">0</span></button>
+        <button class="nav-item" data-nav="coach"><span class="nav-icon">✦</span><span>Coach</span></button>
+        <button class="nav-item" data-nav="library"><span class="nav-icon">▤</span><span>Library</span></button>
+        <button class="nav-item" data-nav="you"><span class="nav-icon">◎</span><span>You</span></button>
+      </nav>
+      <div class="rail-bottom">
+        <button class="rail-action" id="openSearch"><span>⌕</span><span>Search</span><kbd>⌘ K</kbd></button>
+        <button class="rail-action" id="openSettings"><span>⚙</span><span>Settings</span></button>
+        <div class="privacy-state"><i></i><span>Private workspace</span></div>
+      </div>
+    </aside>
+
+    <section class="workspace">
+      <header class="mobile-topbar">
+        <button class="mobile-brand" data-nav="brief"><span>V</span>Vidya</button>
+        <div class="mobile-actions">
+          <button class="icon-button" id="mobileSearch" aria-label="Search">⌕</button>
+          <button class="avatar-button" data-nav="you" aria-label="Open your profile">A</button>
+        </div>
+      </header>
+
+      <div class="page is-active" id="briefPage" data-page="brief" aria-label="Daily brief">
+        <div class="brief-layout">
+          <header class="page-intro brief-intro">
+            <div>
+              <p class="date-line" id="briefDate"></p>
+              <h1 id="greeting">Good morning.</h1>
+              <p>One useful day, designed around what matters.</p>
+            </div>
+            <button class="quiet-button refresh-button" id="refreshBrief"><span>↻</span> Refresh</button>
+          </header>
+
+          <section class="daily-pulse" aria-label="Daily pulse">
+            <button class="pulse-primary" data-nav="today">
+              <span class="pulse-kicker">Your next best move</span>
+              <strong id="nextBestMove">Review your highest-priority task</strong>
+              <span id="nextBestMeta">12 focused minutes</span>
+              <i>→</i>
+            </button>
+            <button class="pulse-card culture-pulse" id="openCultureFromBrief">
+              <span class="pulse-symbol">◉</span>
+              <small>Culture bridge</small>
+              <strong>One idea for connecting today</strong>
+              <span>2 min</span>
+            </button>
+            <button class="pulse-card" data-nav="library">
+              <span class="pulse-symbol">▤</span>
+              <small>Your memory</small>
+              <strong id="memoryPulse">Ready for new material</strong>
+              <span id="memoryPulseMeta">Local and private</span>
+            </button>
+          </section>
+
+          <section class="feed-section" aria-labelledby="feedTitle">
+            <div class="section-heading feed-heading">
+              <div>
+                <p class="eyebrow">Finite daily edition</p>
+                <h2 id="feedTitle">Worth knowing</h2>
+              </div>
+              <div class="feed-tools">
+                <div class="topic-tabs" id="topicTabs" aria-label="Feed topics"></div>
+                <span class="edition-progress" id="editionProgress">1 of 6</span>
+              </div>
+            </div>
+            <div class="knowledge-stage" id="knowledgeStage" aria-live="polite"></div>
+            <div class="feed-navigation">
+              <button class="circle-control" id="previousStory" aria-label="Previous idea">←</button>
+              <div class="progress-dots" id="progressDots" aria-hidden="true"></div>
+              <button class="circle-control" id="nextStory" aria-label="Next idea">→</button>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <div class="page" id="todayPage" data-page="today" aria-label="Today">
+        <div class="today-layout">
+          <main class="today-main">
+            <header class="page-intro">
+              <div>
+                <p class="date-line" id="todayDate"></p>
+                <h1>Today, with intention.</h1>
+                <p id="todaySummary">A calm plan for the work that moves things forward.</p>
+              </div>
+              <button class="primary-button" id="quickAddTask">＋ Add task</button>
+            </header>
+
+            <section class="focus-card" id="focusCard">
+              <div class="focus-copy">
+                <p class="eyebrow">Focus now</p>
+                <h2 id="focusTitle">Choose one meaningful action</h2>
+                <p id="focusReason">Vidya prioritizes urgency, importance, effort and your current context.</p>
+                <div class="focus-meta"><span id="focusDuration">25 min</span><span id="focusSubject">@Inbox</span></div>
+              </div>
+              <div class="focus-timer" aria-live="polite">
+                <strong id="timerDisplay">25:00</strong>
+                <button id="focusToggle">Start focus</button>
+              </div>
+            </section>
+
+            <section class="task-section" aria-labelledby="taskHeading">
+              <div class="section-heading task-heading">
+                <div><p class="eyebrow">Smart plan</p><h2 id="taskHeading">Actions</h2></div>
+                <div class="task-view-actions">
+                  <button class="icon-button" id="taskSearchButton" aria-label="Search tasks">⌕</button>
+                  <button class="quiet-button" id="taskSortButton">Priority</button>
+                </div>
+              </div>
+              <div class="filter-row" id="taskFilters" aria-label="Task filters"></div>
+              <div class="task-list" id="taskList"></div>
+            </section>
+          </main>
+
+          <aside class="today-aside">
+            <section class="aside-card reminder-card">
+              <div class="aside-heading"><div><p class="eyebrow">Coming up</p><h3>Reminders</h3></div><button class="text-button" id="enableReminders">Enable</button></div>
+              <div id="reminderList"></div>
+            </section>
+            <section class="aside-card memory-card">
+              <p class="eyebrow">Remembered for you</p>
+              <blockquote id="memoryQuote">“Important decisions, preferences and commitments will appear here.”</blockquote>
+              <button class="text-button" data-nav="coach">Tell Vidya something →</button>
+            </section>
+            <section class="aside-card culture-mini" id="cultureMini">
+              <p class="eyebrow">Social fluency</p>
+              <h3 id="cultureMiniTitle">The Canadian softener</h3>
+              <p id="cultureMiniText">A useful way to disagree without sounding distant.</p>
+              <button class="text-button" data-open-dialog="cultureDialog">Learn in 2 minutes →</button>
+            </section>
+          </aside>
+        </div>
+      </div>
+
+      <div class="page coach-page" id="coachPage" data-page="coach" aria-label="Coach">
+        <header class="coach-header">
+          <div>
+            <p class="eyebrow">Your thinking partner</p>
+            <h1>Coach</h1>
+          </div>
+          <div class="mode-switch" id="modeSwitch" aria-label="Answer mode">
+            <button class="is-active" data-mode="library">Library</button>
+            <button data-mode="web">Web</button>
+            <button data-mode="deep">Deep</button>
+          </div>
+        </header>
+        <div class="context-strip" id="contextStrip"></div>
+        <section class="conversation" id="conversation" aria-live="polite"></section>
+        <div class="starter-prompts" id="starterPrompts">
+          <button data-prompt="What changed in my latest release material, and what should I do?">What changed?</button>
+          <button data-prompt="Coach me through my highest-priority task step by step.">Coach my next task</button>
+          <button data-prompt="Find a hidden pattern across my subjects and explain why it matters.">Connect my knowledge</button>
+          <button data-prompt="Give me a culture and conversation briefing for today.">Culture briefing</button>
+        </div>
+        <form class="composer" id="coachComposer">
+          <div class="syntax-hint"><span><b>@</b> subject</span><span><b>#</b> bucket</span><span id="composerStatus">Library-first</span></div>
+          <div class="composer-row">
+            <textarea id="coachInput" rows="1" placeholder="Ask anything, or say: @Work remind me tomorrow to review the release #urgent"></textarea>
+            <button type="button" class="voice-button" id="voiceButton" aria-label="Talk to Vidya">◉</button>
+            <button class="send-button" aria-label="Send">↑</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="page" id="libraryPage" data-page="library" aria-label="Library">
+        <div class="library-layout">
+          <header class="page-intro library-intro">
+            <div>
+              <p class="date-line">Your private knowledge system</p>
+              <h1>Library</h1>
+              <p>Drop in work releases, papers and notes. Vidya turns them into guidance you can use.</p>
+            </div>
+            <button class="primary-button" id="libraryUploadButton">＋ Add material</button>
+          </header>
+
+          <section class="release-drop" id="releaseDrop">
+            <input type="file" id="libraryFileInput" multiple hidden accept=".pdf,.docx,.txt,.md,.csv,.json,.log">
+            <div class="drop-symbol">⇧</div>
+            <div><p class="eyebrow">Release intake</p><h2>Turn new material into a working brief</h2><p>Vidya reads locally, finds changes, builds a subject library, suggests tasks and prepares coaching questions.</p></div>
+            <button class="secondary-button" id="chooseFilesButton">Choose files</button>
+          </section>
+
+          <section class="library-stats" aria-label="Library status">
+            <div><strong id="sourceCount">0</strong><span>sources</span></div>
+            <div><strong id="librarySubjectCount">0</strong><span>subjects</span></div>
+            <div><strong id="knowledgeChunkCount">0</strong><span>searchable passages</span></div>
+            <div><strong id="libraryPrivacy">Local</strong><span>storage mode</span></div>
+          </section>
+
+          <section class="library-workspace">
+            <div class="source-browser">
+              <div class="section-heading">
+                <div><p class="eyebrow">Expert contexts</p><h2>Subjects & sources</h2></div>
+                <button class="quiet-button" id="createSubjectButton">＋ Subject</button>
+              </div>
+              <div class="subject-tabs" id="subjectTabs"></div>
+              <div class="source-list" id="sourceList"></div>
+            </div>
+            <aside class="release-insight" id="releaseInsight">
+              <p class="eyebrow">Latest intake</p>
+              <h2>Ready when your next release arrives</h2>
+              <p>Add a document to see the concise brief, important changes, questions to ask and suggested follow-up tasks.</p>
+              <button class="text-button" id="askLatestRelease">Ask Coach →</button>
+            </aside>
+          </section>
+        </div>
+      </div>
+
+      <div class="page" id="youPage" data-page="you" aria-label="You">
+        <div class="you-layout">
+          <header class="identity-header">
+            <div class="identity-orb">A</div>
+            <div><p class="eyebrow">Your intelligence profile</p><h1>Become unusually useful.</h1><p>Sharper work, deeper knowledge and more confident connection—with no public streaks or infinite scroll.</p></div>
+            <button class="quiet-button identity-settings" id="openSettingsYou">Settings</button>
+          </header>
+
+          <section class="you-grid">
+            <article class="profile-panel interest-panel">
+              <div class="section-heading"><div><p class="eyebrow">Curiosity map</p><h2>Interests</h2></div><button class="text-button" id="addInterestButton">＋ Add</button></div>
+              <div class="interest-cloud" id="interestCloud"></div>
+            </article>
+            <article class="profile-panel culture-panel">
+              <p class="eyebrow">Culture & belonging</p>
+              <h2>Build social fluency, not trivia.</h2>
+              <p>Learn local context, workplace norms, history, arts and conversation hooks so knowledge helps you connect.</p>
+              <div class="culture-path"><span>Workplace</span><i></i><span>Community</span><i></i><span>Arts</span><i></i><span>Civic life</span></div>
+              <button class="secondary-button" data-open-dialog="cultureDialog">Open today’s culture lesson</button>
+            </article>
+            <article class="profile-panel pattern-panel">
+              <p class="eyebrow">Pattern found</p>
+              <h2>Feedback loops connect learning, AI adoption and career growth.</h2>
+              <p>In each domain, output becomes evidence for the next decision. Faster, higher-quality feedback creates compounding advantage.</p>
+              <button class="text-button" data-nav="coach" data-coach-prompt="Explain this pattern using my library and suggest one experiment.">Explore with Coach →</button>
+            </article>
+            <article class="profile-panel memory-panel">
+              <div class="section-heading"><div><p class="eyebrow">Personal memory</p><h2>What Vidya remembers</h2></div><button class="text-button" data-nav="coach" data-coach-prompt="I want to tell you something important to remember.">＋ Remember</button></div>
+              <div class="memory-list" id="memoryList"></div>
+            </article>
+          </section>
+        </div>
+      </div>
+    </section>
+
+    <nav class="bottom-nav" aria-label="Primary navigation">
+      <button class="nav-item is-active" data-nav="brief" aria-current="page"><span>⌂</span><small>Brief</small></button>
+      <button class="nav-item" data-nav="today"><span>✓</span><small>Today</small><i id="mobileTaskDot"></i></button>
+      <button class="nav-item coach-nav" data-nav="coach"><span>✦</span><small>Coach</small></button>
+      <button class="nav-item" data-nav="library"><span>▤</span><small>Library</small></button>
+      <button class="nav-item" data-nav="you"><span>◎</span><small>You</small></button>
+    </nav>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  </main>
+
+  <dialog id="searchDialog">
+    <form method="dialog" class="dialog-shell search-dialog">
+      <header><div><p class="eyebrow">Command center</p><h2>Search everything</h2></div><button class="icon-button" value="cancel" aria-label="Close">×</button></header>
+      <label class="global-search"><span>⌕</span><input id="globalSearchInput" placeholder="Tasks, #tags, @subjects, sources, memories…" autocomplete="off"></label>
+      <div class="search-results" id="searchResults"></div>
+      <p class="keyboard-tip">Try <kbd>@Work</kbd>, <kbd>#urgent</kbd>, or a phrase from a document.</p>
+    </form>
+  </dialog>
+
+  <dialog id="taskDialog">
+    <form class="dialog-shell task-dialog" id="taskForm">
+      <header><div><p class="eyebrow" id="taskDialogEyebrow">New action</p><h2 id="taskDialogTitle">Add a task</h2></div><button class="icon-button" type="button" data-close-dialog aria-label="Close">×</button></header>
+      <input type="hidden" id="taskId">
+      <label class="form-field"><span>What needs to happen?</span><input id="taskTitleInput" required maxlength="160" placeholder="Review the release notes"></label>
+      <div class="form-grid">
+        <label class="form-field"><span>Subject</span><input id="taskSubjectInput" placeholder="Work"></label>
+        <label class="form-field"><span>Tags</span><input id="taskTagsInput" placeholder="urgent, release"></label>
+        <label class="form-field"><span>Due</span><input id="taskDueInput" type="datetime-local"></label>
+        <label class="form-field"><span>Priority</span><select id="taskPriorityInput"><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option></select></label>
+      </div>
+      <label class="form-field"><span>Notes</span><textarea id="taskNotesInput" rows="3" placeholder="Context, success criteria or the first step"></textarea></label>
+      <div class="dialog-actions"><button type="button" class="danger-button" id="deleteTaskButton">Delete</button><button class="primary-button">Save task</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="subjectDialog">
+    <form class="dialog-shell small-dialog" id="subjectForm">
+      <header><div><p class="eyebrow">Knowledge structure</p><h2>Create a subject</h2></div><button class="icon-button" type="button" data-close-dialog aria-label="Close">×</button></header>
+      <p>A subject is a broad area such as Work, People Analytics, Canadian Culture or AI Strategy. Use #tags for narrower concepts.</p>
+      <label class="form-field"><span>Subject name</span><input id="subjectNameInput" required maxlength="40" placeholder="Canadian Culture"></label>
+      <div class="dialog-actions"><button class="primary-button">Create subject</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="interestDialog">
+    <form class="dialog-shell small-dialog" id="interestForm">
+      <header><div><p class="eyebrow">Curiosity map</p><h2>Add an interest</h2></div><button class="icon-button" type="button" data-close-dialog aria-label="Close">×</button></header>
+      <label class="form-field"><span>Topic</span><input id="interestNameInput" required maxlength="44" placeholder="Behavioral economics"></label>
+      <div class="dialog-actions"><button class="primary-button">Add interest</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="sourceDialog">
+    <div class="dialog-shell source-dialog">
+      <header><div><p class="eyebrow" id="sourceDialogType">Source</p><h2 id="sourceDialogTitle">Document</h2></div><button class="icon-button" type="button" data-close-dialog aria-label="Close">×</button></header>
+      <div id="sourceDialogBody"></div>
+      <div class="dialog-actions"><button class="danger-button" id="deleteSourceButton">Remove</button><button class="secondary-button" id="sourceToTaskButton">Create follow-up</button><button class="primary-button" id="askSourceButton">Ask Coach</button></div>
+    </div>
+  </dialog>
+
+  <dialog id="storyDialog">
+    <div class="dialog-shell story-dialog">
+      <header><div><p class="eyebrow" id="storyDialogMeta">Intelligence brief</p><h2 id="storyDialogTitle">Worth knowing</h2></div><button class="icon-button" type="button" data-close-dialog aria-label="Close">×</button></header>
+      <div id="storyDialogBody"></div>
+      <div class="dialog-actions"><button class="secondary-button" id="storyDialogTask">Create action</button><button class="secondary-button" id="storyDialogSource">Open source</button><button class="primary-button" id="storyDialogCoach">Ask Coach</button></div>
+    </div>
+  </dialog>
+
+  <dialog id="settingsDialog">
+    <form class="dialog-shell settings-dialog" id="settingsForm">
+      <header><div><p class="eyebrow">Preferences</p><h2>Settings</h2></div><button class="icon-button" type="button" data-close-dialog aria-label="Close">×</button></header>
+      <section><h3>Appearance</h3><div class="theme-picker" id="themePicker"><button type="button" data-theme="system">System</button><button type="button" data-theme="night">Night</button><button type="button" data-theme="paper">Paper</button><button type="button" data-theme="aurora">Aurora</button></div></section>
+      <section><h3>Intelligence</h3><p>Use one model key on this device for a personal demo, or a protected Supabase function in production.</p><label class="form-field"><span>Gemini API key · optional</span><input type="password" id="geminiKeyInput" placeholder="Stored only in this browser" autocomplete="off"></label><label class="form-field"><span>Claude API key · optional</span><input type="password" id="claudeKeyInput" placeholder="Stored only in this browser" autocomplete="off"></label><div class="engine-state" id="engineState"></div></section>
+      <section><h3>Healthy engagement</h3><label class="switch-row"><span><b>Finite daily edition</b><small>No infinite feed. Vidya tells you when you are caught up.</small></span><input type="checkbox" id="finiteFeedInput" checked></label><label class="switch-row"><span><b>Gentle task prompts</b><small>Prompt only when a task is due or meaningfully blocked.</small></span><input type="checkbox" id="gentlePromptsInput" checked></label></section>
+      <section class="privacy-note"><h3>Privacy</h3><p>Your task history, memories and extracted document text stay in this browser in the demo. Do not add sensitive work material until your production deployment uses authenticated storage and server-side secrets.</p></section>
+      <div class="dialog-actions"><button class="primary-button">Save settings</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="cultureDialog">
+    <div class="dialog-shell culture-dialog">
+      <header><div><p class="eyebrow">Today’s culture lesson</p><h2>The Canadian softener</h2></div><button class="icon-button" type="button" data-close-dialog aria-label="Close">×</button></header>
+      <div class="culture-scene"><span>At work</span><blockquote>“I might be missing something—could we look at the assumption behind that timeline?”</blockquote></div>
+      <div class="lesson-grid"><div><small>What it signals</small><p>Curiosity and respect while still challenging the idea.</p></div><div><small>Hidden norm</small><p>Disagreement is often softened linguistically, especially in mixed-seniority groups.</p></div><div><small>Do not confuse it with</small><p>Lack of conviction. The wording protects the relationship, not the quality bar.</p></div><div><small>Conversation hook</small><p>“What’s one workplace norm you had to learn rather than being told?”</p></div></div>
+      <div class="dialog-actions"><button class="secondary-button" id="cultureTaskButton">Practice this today</button><button class="primary-button" id="cultureCoachButton">Discuss with Coach</button></div>
+    </div>
+  </dialog>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
