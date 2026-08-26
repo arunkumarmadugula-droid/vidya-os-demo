@@ -5,13 +5,77 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#080a0f">
   <meta name="description" content="Vidya is a private personal intelligence system for work, learning, memory and culture.">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://commons.wikimedia.org https://api.openalex.org https://generativelanguage.googleapis.com https://r.jina.ai; img-src 'self' data: blob: https:; font-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Vidya">
   <title>Vidya — Personal Intelligence</title>
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-180.png">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <main class="app-shell" id="appShell">
+  <section class="vault-gate" id="vaultGate" aria-label="Unlock Vidya">
+    <div class="vault-gate-shell">
+      <header class="vault-brand"><span>V</span><div><strong>Vidya</strong><small>Personal intelligence, privately held</small></div></header>
+
+      <div class="vault-panel" id="vaultSetupPanel" hidden>
+        <p class="vault-kicker">This device · encrypted</p>
+        <h1>Create your private vault.</h1>
+        <p>Your password encrypts tasks, chats, memories and Library text stored by this browser. It is not sent to Vidya.</p>
+        <form id="vaultSetupForm">
+          <label class="form-field"><span>Profile name</span><input id="vaultNameInput" required maxlength="40" autocomplete="name" placeholder="Arun"></label>
+          <label class="form-field"><span>Vault password · at least 12 characters</span><input type="password" id="vaultPasswordCreate" required minlength="12" autocomplete="new-password" placeholder="Create a strong password"></label>
+          <label class="form-field"><span>Confirm password</span><input type="password" id="vaultPasswordConfirm" required minlength="12" autocomplete="new-password" placeholder="Type it again"></label>
+          <label class="vault-device-choice"><input type="checkbox" id="setupDeviceUnlock" checked><span><b>Set up device unlock when supported</b><small>On iPhone, Safari may use Face ID, Touch ID or your device passcode. HTTPS is required.</small></span></label>
+          <button class="primary-button vault-primary" id="createVaultButton">Create encrypted vault</button>
+        </form>
+        <div class="vault-trust"><span>◈</span><p><b>No camera access.</b> Your iPhone performs biometric verification and returns only success or failure.</p></div>
+      </div>
+
+      <div class="vault-panel" id="vaultUnlockPanel" hidden>
+        <p class="vault-kicker">Private vault</p>
+        <h1>Welcome back, <span id="vaultOwner">Owner</span>.</h1>
+        <p>Unlock the encrypted knowledge stored in this browser.</p>
+        <button class="device-unlock-button" type="button" id="deviceUnlockButton" hidden><span>◎</span><b>Unlock with this device</b><small>Face ID, Touch ID or device passcode</small></button>
+        <p class="device-unlock-hint" id="deviceUnlockHint" hidden>Biometric data stays on your device.</p>
+        <div class="vault-divider"><span>or use your password</span></div>
+        <form id="vaultUnlockForm">
+          <label class="form-field"><span>Vault password</span><input type="password" id="vaultPasswordInput" required autocomplete="current-password" autofocus placeholder="Enter your password"></label>
+          <button class="primary-button vault-primary" id="passwordUnlockButton">Unlock Vidya</button>
+        </form>
+        <div class="vault-links"><button type="button" id="showRecoveryButton">Use recovery key</button><button type="button" id="resetVaultButton">Reset this device</button></div>
+      </div>
+
+      <div class="vault-panel" id="vaultRecoveryPanel" hidden>
+        <p class="vault-kicker">Vault recovery</p>
+        <h1>Use your recovery key.</h1>
+        <p>This key was shown once when the vault was created. After unlocking, change the password in Settings.</p>
+        <form id="vaultRecoveryForm">
+          <label class="form-field"><span>Recovery key</span><input id="vaultRecoveryInput" required autocomplete="off" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX-XXXX"></label>
+          <button class="primary-button vault-primary" id="recoveryUnlockButton">Unlock with recovery key</button>
+        </form>
+        <button class="vault-back" type="button" id="backToPasswordButton">← Back to password</button>
+      </div>
+
+      <div class="vault-panel" id="vaultKeyPanel" hidden>
+        <p class="vault-kicker">One important step</p>
+        <h1>Save your recovery key.</h1>
+        <p>If you forget your password and lose device unlock, this is the only way to recover a local vault.</p>
+        <code class="recovery-key" id="recoveryKeyValue"></code>
+        <button class="secondary-button vault-copy" type="button" id="copyRecoveryButton">Copy recovery key</button>
+        <p class="device-setup-result" id="deviceSetupResult"></p>
+        <label class="vault-saved"><input type="checkbox" id="recoverySavedCheck"><span>I saved this key somewhere private.</span></label>
+        <button class="primary-button vault-primary" type="button" id="enterVidyaButton" disabled>Enter Vidya</button>
+      </div>
+
+      <p class="vault-message" id="vaultMessage" role="status" aria-live="polite"></p>
+      <footer>Local vault security · For a cross-device account, connect Supabase before adding confidential work.</footer>
+    </div>
+  </section>
+
+  <main class="app-shell" id="appShell" hidden>
     <aside class="side-rail" aria-label="Primary navigation">
       <button class="wordmark" data-nav="brief" aria-label="Go to Brief"><span>V</span><b>Vidya</b></button>
       <nav class="rail-nav">
@@ -74,6 +138,7 @@
               <div>
                 <p class="eyebrow">Finite daily edition</p>
                 <h2 id="feedTitle">Worth knowing</h2>
+                <p class="refresh-meta" id="refreshBriefMeta">Checks every 5 hours when opened</p>
               </div>
               <div class="feed-tools">
                 <div class="topic-tabs" id="topicTabs" aria-label="Feed topics"></div>
@@ -101,6 +166,27 @@
               </div>
               <button class="primary-button" id="quickAddTask">＋ Add task</button>
             </header>
+
+            <section class="planning-ritual" aria-labelledby="planDayHeading">
+              <div><p class="eyebrow">Two-minute reset</p><h2 id="planDayHeading">Plan the day before it plans you.</h2><p id="planningSummary">Choose a realistic focus, see deadlines and protect space for the work that matters.</p></div>
+              <div class="planning-actions"><button class="secondary-button" id="morningBriefButton">Morning brief</button><button class="quiet-button" id="tomorrowBriefButton">Tomorrow priorities</button></div>
+              <div class="top-priorities" id="topPriorities" aria-label="Top priorities"></div>
+            </section>
+
+            <form class="quick-capture" id="quickCaptureForm">
+              <div class="quick-capture-icon">＋</div>
+              <label><span>Quick capture</span><input id="quickCaptureInput" autocomplete="off" placeholder="Review launch deck tomorrow 10am @Work #release for 30 minutes"></label>
+              <button type="button" class="icon-button" id="quickCaptureVoice" aria-label="Dictate a task">◉</button>
+              <button type="button" class="icon-button" id="quickCaptureScribe" aria-label="Write with Apple Pencil">✎</button>
+              <button class="primary-button">Add</button>
+              <div class="capture-preview" id="quickCapturePreview" aria-live="polite"></div>
+            </form>
+
+            <section class="planner-board" aria-labelledby="plannerHeading">
+              <div class="section-heading"><div><p class="eyebrow">Calendar + timeline</p><h2 id="plannerHeading">Your next seven days</h2></div><button class="text-button" id="exportCalendarButton">Export calendar</button></div>
+              <div class="week-strip" id="weekStrip" aria-label="Choose a planning date"></div>
+              <div class="day-timeline" id="dayTimeline"></div>
+            </section>
 
             <section class="focus-card" id="focusCard">
               <div class="focus-copy">
@@ -209,7 +295,12 @@
                 <div><p class="eyebrow">Expert contexts</p><h2>Subjects & sources</h2></div>
                 <button class="quiet-button" id="createSubjectButton">＋ Subject</button>
               </div>
-              <div class="subject-tabs" id="subjectTabs"></div>
+              <div class="library-toolbar" aria-label="Find and arrange Library sources">
+                <label class="library-search"><span>⌕</span><input id="librarySearchInput" type="search" autocomplete="off" placeholder="Search titles, subjects or concepts"></label>
+                <select id="libraryTypeFilter" aria-label="Filter sources by file type"><option value="all">All types</option><option value="pdf">PDF</option><option value="docx">DOCX</option><option value="txt">Text</option><option value="brief">Saved briefs</option></select>
+                <select id="librarySort" aria-label="Sort Library sources"><option value="recent">Recent</option><option value="name">A–Z</option></select>
+              </div>
+              <div class="subject-tabs" id="subjectTabs" aria-label="Filter Library by subject"></div>
               <div class="source-list" id="sourceList"></div>
             </div>
             <aside class="release-insight" id="releaseInsight">
@@ -232,7 +323,9 @@
 
           <section class="you-grid">
             <article class="profile-panel interest-panel">
-              <div class="section-heading"><div><p class="eyebrow">Curiosity map</p><h2>Interests</h2></div><button class="text-button" id="addInterestButton">＋ Add</button></div>
+              <div class="section-heading"><div><p class="eyebrow">Curiosity map</p><h2>Interests</h2><p class="interest-count" id="interestCount"></p></div><button class="text-button" id="addInterestButton">＋ Custom</button></div>
+              <label class="interest-search"><span>⌕</span><input id="interestSearchInput" type="search" autocomplete="off" placeholder="Find an interest"></label>
+              <div class="daily-mix"><div><small>Your daily mix</small><p>Star up to five Core interests. Follow as many supporting topics as you like.</p></div><div class="core-interest-row" id="coreInterestRow"></div></div>
               <div class="interest-cloud" id="interestCloud"></div>
             </article>
             <article class="profile-panel culture-panel">
@@ -252,10 +345,17 @@
               <div class="section-heading"><div><p class="eyebrow">Personal memory</p><h2>What Vidya remembers</h2></div><button class="text-button" data-nav="coach" data-coach-prompt="I want to tell you something important to remember.">＋ Remember</button></div>
               <div class="memory-list" id="memoryList"></div>
             </article>
+            <article class="profile-panel security-panel">
+              <div class="section-heading"><div><p class="eyebrow">Private by design</p><h2>Security & access</h2></div><span class="security-badge" id="profileSecurityBadge">Encrypted</span></div>
+              <p id="profileSecurityText">Your local vault is encrypted and locks automatically.</p>
+              <div class="security-actions"><button class="secondary-button" id="profileDeviceUnlock">Set up device unlock</button><button class="quiet-button" id="profileLockNow">Lock now</button><button class="quiet-button" id="profileInstallApp">Install app</button></div>
+            </article>
           </section>
         </div>
       </div>
     </section>
+
+    <button class="activate-vidya" id="activateVidyaButton" aria-label="Activate Vidya personal assistant"><span>✦</span><b>Activate Vidya</b><small>Voice · Scribe · Article</small></button>
 
     <nav class="bottom-nav" aria-label="Primary navigation">
       <button class="nav-item is-active" data-nav="brief" aria-current="page"><span>⌂</span><small>Brief</small></button>
@@ -280,14 +380,22 @@
     <form class="dialog-shell task-dialog" id="taskForm">
       <header><div><p class="eyebrow" id="taskDialogEyebrow">New action</p><h2 id="taskDialogTitle">Add a task</h2></div><button class="icon-button" type="button" data-close-dialog aria-label="Close">×</button></header>
       <input type="hidden" id="taskId">
-      <label class="form-field"><span>What needs to happen?</span><input id="taskTitleInput" required maxlength="160" placeholder="Review the release notes"></label>
-      <div class="form-grid">
-        <label class="form-field"><span>Subject</span><input id="taskSubjectInput" placeholder="Work"></label>
-        <label class="form-field"><span>Tags</span><input id="taskTagsInput" placeholder="urgent, release"></label>
-        <label class="form-field"><span>Due</span><input id="taskDueInput" type="datetime-local"></label>
+      <label class="form-field task-title-field"><span>What needs to happen?</span><input id="taskTitleInput" required maxlength="160" placeholder="Review the release notes"></label>
+      <div class="task-date-presets" aria-label="Quick schedule"><button type="button" data-task-preset="today">Today</button><button type="button" data-task-preset="tomorrow">Tomorrow</button><button type="button" data-task-preset="week">Next week</button><button type="button" data-task-preset="clear">No date</button></div>
+      <div class="form-grid task-core-fields">
+        <label class="form-field"><span>When will you work on it?</span><input id="taskDueInput" type="datetime-local"></label>
         <label class="form-field"><span>Priority</span><select id="taskPriorityInput"><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option></select></label>
       </div>
-      <label class="form-field"><span>Notes</span><textarea id="taskNotesInput" rows="3" placeholder="Context, success criteria or the first step"></textarea></label>
+      <details class="task-more"><summary>More options</summary>
+        <div class="form-grid">
+          <label class="form-field"><span>Subject</span><input id="taskSubjectInput" placeholder="Work"></label>
+          <label class="form-field"><span>Tags</span><input id="taskTagsInput" placeholder="urgent, release"></label>
+          <label class="form-field"><span>Hard deadline</span><input id="taskDeadlineInput" type="date"></label>
+          <label class="form-field"><span>Estimated time</span><select id="taskEstimateInput"><option value="5">5 minutes</option><option value="15">15 minutes</option><option value="25" selected>25 minutes</option><option value="45">45 minutes</option><option value="60">1 hour</option><option value="90">90 minutes</option><option value="120">2 hours</option></select></label>
+          <label class="form-field"><span>Repeat</span><select id="taskRecurrenceInput"><option value="none">Does not repeat</option><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option></select></label>
+        </div>
+        <label class="form-field"><span>Notes or success criteria</span><textarea id="taskNotesInput" rows="3" placeholder="Context, the first step, or what done looks like"></textarea></label>
+      </details>
       <div class="dialog-actions"><button type="button" class="danger-button" id="deleteTaskButton">Delete</button><button class="primary-button">Save task</button></div>
     </form>
   </dialog>
@@ -303,8 +411,9 @@
 
   <dialog id="interestDialog">
     <form class="dialog-shell small-dialog" id="interestForm">
-      <header><div><p class="eyebrow">Curiosity map</p><h2>Add an interest</h2></div><button class="icon-button" type="button" data-close-dialog aria-label="Close">×</button></header>
+      <header><div><p class="eyebrow">Curiosity map</p><h2>Add a custom interest</h2></div><button class="icon-button" type="button" data-close-dialog aria-label="Close">×</button></header>
       <label class="form-field"><span>Topic</span><input id="interestNameInput" required maxlength="44" placeholder="Behavioral economics"></label>
+      <label class="form-field"><span>Category</span><select id="interestGroupInput"><option>Work & Leadership</option><option>AI, Data & Technology</option><option>Mind & Performance</option><option>Business & Economy</option><option>Science & Future</option><option>Society & Culture</option><option>Arts & Conversation</option><option>Life & Wellbeing</option><option>Law & Institutions</option><option>Earth & Environment</option><option>Human Systems</option><option>World & Discovery</option></select></label>
       <div class="dialog-actions"><button class="primary-button">Add interest</button></div>
     </form>
   </dialog>
@@ -313,7 +422,7 @@
     <div class="dialog-shell source-dialog">
       <header><div><p class="eyebrow" id="sourceDialogType">Source</p><h2 id="sourceDialogTitle">Document</h2></div><button class="icon-button" type="button" data-close-dialog aria-label="Close">×</button></header>
       <div id="sourceDialogBody"></div>
-      <div class="dialog-actions"><button class="danger-button" id="deleteSourceButton">Remove</button><button class="secondary-button" id="sourceToTaskButton">Create follow-up</button><button class="primary-button" id="askSourceButton">Ask Coach</button></div>
+      <div class="dialog-actions"><button class="danger-button" id="deleteSourceButton">Remove</button><button class="secondary-button" id="readSourceButton">Read summary</button><button class="secondary-button" id="sourceToTaskButton">Create follow-up</button><button class="primary-button" id="askSourceButton">Ask Coach</button></div>
     </div>
   </dialog>
 
@@ -321,7 +430,54 @@
     <div class="dialog-shell story-dialog">
       <header><div><p class="eyebrow" id="storyDialogMeta">Intelligence brief</p><h2 id="storyDialogTitle">Worth knowing</h2></div><button class="icon-button" type="button" data-close-dialog aria-label="Close">×</button></header>
       <div id="storyDialogBody"></div>
-      <div class="dialog-actions"><button class="secondary-button" id="storyDialogTask">Create action</button><button class="secondary-button" id="storyDialogSource">Open source</button><button class="primary-button" id="storyDialogCoach">Ask Coach</button></div>
+      <div class="dialog-actions"><button class="secondary-button" id="readStoryButton">Read aloud</button><button class="secondary-button" id="storyDialogTask">Create action</button><button class="secondary-button" id="storyDialogSource">Open source</button><button class="primary-button" id="storyDialogCoach">Ask Coach</button></div>
+    </div>
+  </dialog>
+
+  <dialog id="assistantDialog">
+    <form class="dialog-shell assistant-dialog" id="assistantForm">
+      <header><div><p class="eyebrow">Personal assistant</p><h2>Activate Vidya</h2><p>Speak, type, share an article, or ask for a brief.</p></div><button class="icon-button" type="button" data-close-dialog aria-label="Close">×</button></header>
+      <div class="assistant-actions" id="assistantActions" aria-label="Assistant action">
+        <button type="button" class="is-active" data-assistant-action="ask">Ask</button>
+        <button type="button" data-assistant-action="task">Task</button>
+        <button type="button" data-assistant-action="reminder">Reminder</button>
+        <button type="button" data-assistant-action="article">Article</button>
+        <button type="button" data-assistant-action="brief">Brief</button>
+      </div>
+      <button class="assistant-orb" id="assistantVoiceButton" type="button"><span>◉</span><b>Tap to speak</b><small>Push-to-talk · stops if the app leaves the foreground</small></button>
+      <label class="assistant-command"><span>Instruction</span><textarea id="assistantInput" rows="3" placeholder="Remind me tomorrow at 10 to review the release @Work #urgent"></textarea></label>
+      <div class="article-fields" id="articleFields" hidden>
+        <label class="form-field"><span>Public article URL</span><input id="articleUrlInput" type="url" inputmode="url" placeholder="https://example.com/article"></label>
+        <label class="form-field"><span>Optional article text or selected excerpt</span><textarea id="articleTextInput" rows="4" placeholder="Paste the text when the website cannot be read directly"></textarea></label>
+        <p>Direct reading depends on the publisher. If it is blocked, Vidya can use the optional public-page reader only after you approve it in Settings. Never send confidential pages.</p>
+      </div>
+      <div class="assistant-brief-options" id="assistantBriefOptions" hidden><button type="button" data-brief-kind="morning">Morning brief</button><button type="button" data-brief-kind="tomorrow">Tomorrow priorities</button><button type="button" data-brief-kind="unread">Unread knowledge</button></div>
+      <div class="assistant-response" id="assistantResponse" aria-live="polite"><p>Ready when you are.</p></div>
+      <div class="dialog-actions assistant-footer"><button type="button" class="quiet-button" id="openScribeButton">✎ Scribe / Visual</button><button type="button" class="quiet-button" id="speakLastResponse">Read response</button><button class="primary-button">Send to Vidya</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="scribeDialog">
+    <div class="dialog-shell scribe-dialog">
+      <header><div><p class="eyebrow">Apple Pencil + visual intelligence</p><h2>Scribe</h2><p>Use iPad Scribble in the text field, or draw/attach an image for visual interpretation.</p></div><button class="icon-button" type="button" data-close-dialog aria-label="Close">×</button></header>
+      <label class="scribe-text"><span>Write an instruction with Apple Pencil</span><textarea id="scribeTextInput" rows="5" placeholder="Write here with Scribble. iPad converts your handwriting into text."></textarea></label>
+      <div class="scribe-canvas-shell"><canvas id="scribeCanvas" width="1200" height="620" aria-label="Freehand Apple Pencil canvas"></canvas><div class="scribe-empty" id="scribeEmpty">Draw a sketch, handwritten page, diagram or workflow.</div></div>
+      <div class="scribe-tools"><button class="quiet-button" id="scribeUndo" type="button">Undo</button><button class="quiet-button" id="scribeClear" type="button">Clear ink</button><label class="quiet-button file-button">Add photo<input id="visualFileInput" type="file" accept="image/*" capture="environment" hidden></label></div>
+      <label class="form-field"><span>What should Vidya do with the visual?</span><input id="visualPromptInput" placeholder="Extract tasks, explain the diagram and coach me"></label>
+      <img class="visual-preview" id="visualPreview" alt="Selected visual preview" hidden>
+      <div class="dialog-actions"><button class="secondary-button" id="saveScribeNote" type="button">Save to Library</button><button class="primary-button" id="interpretVisual" type="button">Interpret / send</button></div>
+    </div>
+  </dialog>
+
+  <dialog id="shortcutsDialog">
+    <div class="dialog-shell shortcuts-dialog">
+      <header><div><p class="eyebrow">Siri + Share Sheet bridge</p><h2>Set up Apple Shortcuts</h2></div><button class="icon-button" type="button" data-close-dialog aria-label="Close">×</button></header>
+      <div class="shortcut-cards">
+        <article><span>1</span><div><h3>Vidya Capture</h3><p>Shortcuts → + → Dictate Text → URL Encode → Open URLs. Use the copied private-fragment template so dictated text is not sent in hosting logs.</p><button class="text-button" type="button" data-copy-shortcut="capture">Copy capture template</button></div></article>
+        <article><span>2</span><div><h3>Activate Vidya</h3><p>Create a Shortcut that accepts Safari URLs or selected text from the Share Sheet, URL-encodes the input and opens the article template.</p><button class="text-button" type="button" data-copy-shortcut="article">Copy article template</button></div></article>
+        <article><span>3</span><div><h3>Vidya Brief</h3><p>Create an Open URLs action with the brief template, then say “Siri, Vidya Brief.”</p><button class="text-button" type="button" data-copy-shortcut="brief">Copy brief template</button></div></article>
+      </div>
+      <div class="shortcut-boundary"><b>Important</b><p>The local-vault Shortcut opens Vidya and waits for you to unlock it. Silent background capture, reliable closed-app reminders and first-class Siri App Intents need the authenticated backend described in the guide.</p></div>
     </div>
   </dialog>
 
@@ -329,11 +485,32 @@
     <form class="dialog-shell settings-dialog" id="settingsForm">
       <header><div><p class="eyebrow">Preferences</p><h2>Settings</h2></div><button class="icon-button" type="button" data-close-dialog aria-label="Close">×</button></header>
       <section><h3>Appearance</h3><div class="theme-picker" id="themePicker"><button type="button" data-theme="system">System</button><button type="button" data-theme="night">Night</button><button type="button" data-theme="paper">Paper</button><button type="button" data-theme="aurora">Aurora</button></div></section>
-      <section><h3>Intelligence</h3><p>Use one model key on this device for a personal demo, or a protected Supabase function in production.</p><label class="form-field"><span>Gemini API key · optional</span><input type="password" id="geminiKeyInput" placeholder="Stored only in this browser" autocomplete="off"></label><label class="form-field"><span>Claude API key · optional</span><input type="password" id="claudeKeyInput" placeholder="Stored only in this browser" autocomplete="off"></label><div class="engine-state" id="engineState"></div></section>
+      <section><h3>Intelligence</h3><p>Local intelligence needs no key. An optional Gemini key is encrypted at rest in this vault, but the browser still sends it directly to Google—use it only for non-confidential experiments. Production AI belongs behind a protected server function.</p><label class="form-field"><span>Gemini API key · optional experiment</span><input type="password" id="geminiKeyInput" placeholder="Encrypted inside this local vault" autocomplete="off"></label><label class="form-field"><span>Claude API key · reserved for a server proxy</span><input type="password" id="claudeKeyInput" placeholder="Not called directly by this build" autocomplete="off"></label><div class="engine-state" id="engineState"></div></section>
+      <section><h3>Assistant, voice & discovery</h3><label class="switch-row"><span><b>Speak assistant responses</b><small>Use the device voice to read concise replies aloud.</small></span><input type="checkbox" id="speakResponsesInput" checked></label><label class="switch-row"><span><b>Discovery lane</b><small>Occasionally suggest adjacent and unfamiliar topics with a clear “why shown.”</small></span><input type="checkbox" id="discoveryModeInput" checked></label><label class="switch-row"><span><b>Public article reader</b><small>Allow public URLs to be sent to Jina Reader when publishers block direct browser reading. Never use this for confidential pages.</small></span><input type="checkbox" id="publicReaderInput"></label><div class="settings-button-row"><button type="button" class="secondary-button" id="openShortcutsSetup">Set up Siri Shortcuts</button><button type="button" class="quiet-button" id="openAssistantFromSettings">Test assistant</button></div></section>
       <section><h3>Healthy engagement</h3><label class="switch-row"><span><b>Finite daily edition</b><small>No infinite feed. Vidya tells you when you are caught up.</small></span><input type="checkbox" id="finiteFeedInput" checked></label><label class="switch-row"><span><b>Gentle task prompts</b><small>Prompt only when a task is due or meaningfully blocked.</small></span><input type="checkbox" id="gentlePromptsInput" checked></label></section>
-      <section class="privacy-note"><h3>Privacy</h3><p>Your task history, memories and extracted document text stay in this browser in the demo. Do not add sensitive work material until your production deployment uses authenticated storage and server-side secrets.</p></section>
+      <section><h3>Security & access</h3><p id="settingsSecurityText">This browser uses an encrypted local vault.</p><label class="form-field"><span>Auto-lock</span><select id="autoLockInput"><option value="1">After 1 minute</option><option value="5">After 5 minutes</option><option value="15">After 15 minutes</option><option value="30">After 30 minutes</option></select></label><div class="settings-button-row"><button type="button" class="secondary-button" id="settingsDeviceUnlock">Set up device unlock</button><button type="button" class="quiet-button" id="changePasswordButton">Change password</button><button type="button" class="quiet-button" id="settingsLockNow">Lock now</button></div><small class="settings-footnote">On iPhone, device unlock may use Face ID, Touch ID or the device passcode. Vidya never receives your biometric data.</small></section>
+      <section><h3>Backup & install</h3><p>Download an encrypted backup before clearing browser data or changing devices. The backup requires the vault password that existed when it was created.</p><div class="settings-button-row"><button type="button" class="secondary-button" id="exportDataButton">Download encrypted backup</button><button type="button" class="quiet-button" id="importDataButton">Restore backup</button><button type="button" class="quiet-button" id="settingsInstallApp">Install app</button></div><input type="file" id="backupFileInput" accept="application/json,.json" hidden></section>
+      <section class="privacy-note"><h3>Privacy</h3><p>Tasks, chats, memories, settings and extracted document text are encrypted at rest in this browser. This is a device-local vault—not a cross-device account. For confidential employer material, also use a permanent HTTPS domain you control, protect the hosting account, keep AI keys server-side, and confirm your employer permits the upload.</p></section>
       <div class="dialog-actions"><button class="primary-button">Save settings</button></div>
     </form>
+  </dialog>
+
+  <dialog id="passwordDialog">
+    <form class="dialog-shell small-dialog" id="passwordForm">
+      <header><div><p class="eyebrow">Vault security</p><h2>Change vault password</h2></div><button class="icon-button" type="button" data-close-dialog aria-label="Close">×</button></header>
+      <label class="form-field"><span>Current password</span><input type="password" id="currentPasswordInput" required autocomplete="current-password"></label>
+      <label class="form-field"><span>New password · at least 12 characters</span><input type="password" id="newPasswordInput" required minlength="12" autocomplete="new-password"></label>
+      <label class="form-field"><span>Confirm new password</span><input type="password" id="confirmNewPasswordInput" required minlength="12" autocomplete="new-password"></label>
+      <div class="dialog-actions"><button class="primary-button">Update password</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="installDialog">
+    <div class="dialog-shell small-dialog">
+      <header><div><p class="eyebrow">Mobile app experience</p><h2>Install Vidya</h2></div><button class="icon-button" type="button" data-close-dialog aria-label="Close">×</button></header>
+      <div class="install-steps"><div><span>1</span><p>Open your permanent HTTPS Vidya website in Safari.</p></div><div><span>2</span><p>Tap the Share button, then choose <b>Add to Home Screen</b>.</p></div><div><span>3</span><p>Open Vidya from its new Home Screen icon and set up device unlock there.</p></div></div>
+      <p class="install-note">A passkey belongs to the website domain where it was created. Pick your permanent domain before enrolling Face ID/device unlock.</p>
+    </div>
   </dialog>
 
   <dialog id="cultureDialog">
@@ -346,6 +523,8 @@
   </dialog>
 
   <script src="config.js"></script>
+  <script src="auth.js"></script>
   <script src="app.js"></script>
+  <script src="assistant.js"></script>
 </body>
 </html>

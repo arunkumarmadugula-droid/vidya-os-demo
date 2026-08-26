@@ -1,5 +1,5 @@
-const CACHE = "vidhya-os-v1";
-const CORE = ["./", "./index.html", "./styles.css", "./app.js", "./config.js", "./manifest.json", "./icon-192.png", "./icon-512.png"];
+const CACHE = "vidya-functional-beta-2026-08-26-v1";
+const CORE = ["./", "./index.html", "./styles.css", "./auth.js", "./app.js", "./assistant.js", "./config.js", "./manifest.json", "./icon-180.png", "./icon-192.png", "./icon-512.png", "./vendor/pdf.min.js", "./vendor/pdf.worker.min.js", "./vendor/mammoth.browser.min.js"];
 
 self.addEventListener("install", event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(CORE)).then(() => self.skipWaiting()));
@@ -18,9 +18,11 @@ self.addEventListener("fetch", event => {
 
 self.addEventListener("notificationclick", event => {
   event.notification.close();
+  const taskId = event.notification.data?.taskId || "";
+  const suffix = taskId ? `#action=reminder&task=${encodeURIComponent(taskId)}` : "#action=brief&kind=morning";
   event.waitUntil(clients.matchAll({ type: "window", includeUncontrolled: true }).then(windows => {
     const existing = windows[0];
-    if (existing) return existing.focus();
-    return clients.openWindow("./index.html");
+    if (existing) return existing.navigate(`./index.html${suffix}`).then(client => client.focus());
+    return clients.openWindow(`./index.html${suffix}`);
   }));
 });
