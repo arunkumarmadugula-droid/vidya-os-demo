@@ -15,6 +15,8 @@
   let visualData = "";
   let strokes = [];
   let activeStroke = null;
+  let scribeMode = "write";
+  let scribeOutcome = "tasks";
 
   function app() { return window.VidyaApp; }
   function state() { return app()?.getState?.(); }
@@ -111,6 +113,80 @@
     if (!top.length) return `Good ${new Date().getHours() < 12 ? "morning" : "day"}. You have no open commitments. Protect time for one useful idea and one meaningful connection.`;
     const dueToday = open.filter(task => task.startAt && localDay(task.startAt) <= localDay(new Date())).length;
     return `Good ${new Date().getHours() < 12 ? "morning" : "day"}. You have ${open.length} open commitment${open.length === 1 ? "" : "s"}, with ${dueToday} scheduled or overdue today. Your first priority is ${top[0].title}, estimated at ${top[0].estimate || 25} minutes. ${top[1] ? `Second is ${top[1].title}. ` : ""}${unread.length ? `Your knowledge queue has ${unread.length} unread item${unread.length === 1 ? "" : "s"}.` : "Your knowledge queue is caught up."}`;
+  }
+
+  function briefValue(value, fallback) {
+    if (typeof value === "string") return value;
+    if (value && typeof value === "object") return value.title || value.text || value.summary || value.action || fallback;
+    return fallback;
+  }
+
+  function latestStructuredBrief() {
+    const row = state()?.briefHistory?.[0];
+    return row?.brief || row?.content || null;
+  }
+
+  function buildBriefSnapshot() {
+    const s = state();
+    const docs = app().getLibraryDocs();
+    return {
+      openTasks: openTasks().slice(0, 100).map(task => ({ id: task.id, title: task.title, subject: task.subject, tags: task.tags || [], priority: task.priority, startAt: task.startAt || task.due || null, dueAt: task.dueAt || null, estimate: task.estimate || 25 })),
+      unreadFeed: app().getFeedItems().filter(item => !(s.readFeedIds || []).includes(item.id) && !(s.archivedFeedIds || []).includes(item.id)).slice(0, 50).map(item => ({ id: item.id, title: item.title, subject: item.subject, summary: item.summary, sourceUrl: item.sourceUrl || "" })),
+      libraryItems: docs.slice(0, 30).map(doc => ({ id: doc.id, title: doc.name, type: doc.type, subject: doc.subject, summary: doc.summary || "", excerpt: doc.chunks?.[0]?.text?.slice(0, 650) || "", addedAt: doc.addedAt })),
+      interests: (s.interests || []).filter(item => item.on).slice(0, 100).map(item => `${item.core ? "Core: " : ""}${item.name}`),
+      activity: [{ type: "library", count: docs.length }, { type: "open_tasks", count: openTasks().length }, { type: "unread_knowledge", count: app().getFeedItems().filter(item => !(s.readFeedIds || []).includes(item.id) && !(s.archivedFeedIds || []).includes(item.id)).length }]
+    };
+  }
+
+  function renderCommandBrief() {
+    if (!state() || !$("#commandBrief")) return;
+    const s = state();
+    const structured = latestStructuredBrief();
+    const top = topTasks(1)[0];
+    const unread = app().getFeedItems().filter(item => !(s.readFeedIds || []).includes(item.id) && !(s.archivedFeedIds || []).includes(item.id));
+    const recent = [...app().getLibraryDocs()].sort((a, b) => new Date(b.addedAt) - new Date(a.addedAt))[0];
+    const priority = structured?.priorities?.[0];
+    const research = structured?.researchHighlights?.[0];
+    const library = structured?.libraryConnections?.[0];
+    const coaching = structured?.reflection || structured?.actions?.[0];
+    $("#commandBriefTasks").textContent = briefValue(priority, top?.title || "Choose one meaningful priority");
+    $("#commandBriefResearch").textContent = briefValue(research, unread[0]?.title || "Your knowledge queue is caught up");
+    $("#commandBriefLibrary").textContent = briefValue(library, recent ? `${recent.name} is ready for questions` : "Add one trusted source to build expertise");
+    $("#commandBriefCoach").textContent = briefValue(coaching, top ? `What would make “${top.title}” easier to finish?` : "What should you learn or decide next?");
+    const latest = s.briefHistory?.[0];
+    $("#commandBriefGenerated").textContent = structured ? (structured.overview || latest?.text || "Your synthesized command brief is ready.") : `${composeBrief("morning")} Connect the secure engine for scheduled research synthesis.`;
+    const live = Boolean(structured);
+    $("#commandBriefStatus").textContent = live ? "AI brief" : "Local";
+    $("#commandBriefStatus").classList.toggle("is-live", live);
+  }
+
+  async function generateCommandBrief(kind = "manual") {
+    const button = $("#runCommandBrief");
+    if (button) { button.disabled = true; button.textContent = "Building…"; }
+    try {
+      if (app().hasSecureEngine?.()) {
+        const data = await app().callSecureEngine("brief.generate", { kind, snapshot: buildBriefSnapshot() });
+        state().briefHistory = [{ id: `brief-${Date.now()}`, kind, brief: data.brief || data.data || {}, text: data.text || "", sources: data.sources || [], createdAt: new Date().toISOString() }, ...(state().briefHistory || [])].slice(0, 30);
+        app().saveState(); renderCommandBrief(); app().renderCostMonitor?.();
+        app().toast("Fresh AI command brief is ready");
+      } else {
+        renderCommandBrief();
+        app().toast("Local command brief rebuilt. Connect the secure engine for research synthesis.");
+      }
+    } catch (error) { app().toast(`Brief could not be generated: ${error.message}`); }
+    finally { if (button) { button.disabled = false; button.textContent = "Build fresh brief"; } }
+  }
+
+  async function syncLatestBrief() {
+    if (!app().hasSecureEngine?.()) return;
+    try {
+      const data = await app().callSecureEngine("brief.latest", { kind: "daily" });
+      const record = data.brief;
+      if (!record?.content) return;
+      const exists = (state().briefHistory || []).some(item => item.id === record.id);
+      if (!exists) state().briefHistory = [{ id: record.id, kind: record.kind, brief: record.content, text: record.content.overview || "", sources: record.sources || [], createdAt: record.created_at }, ...(state().briefHistory || [])].slice(0, 30);
+      app().saveState(); renderCommandBrief();
+    } catch { /* The local brief remains useful when the cloud is unreachable. */ }
   }
 
   function deliverBrief(kind, showAssistant = true) {
@@ -277,38 +353,78 @@
     canvas.addEventListener("pointermove", event => { if (!activeStroke) return; event.preventDefault(); activeStroke.push(point(event)); redraw(); });
     ["pointerup", "pointercancel", "pointerleave"].forEach(name => canvas.addEventListener(name, () => { activeStroke = null; }));
     $("#scribeUndo").addEventListener("click", () => { strokes.pop(); redraw(); });
-    $("#scribeClear").addEventListener("click", () => { strokes = []; visualData = ""; $("#visualPreview").hidden = true; redraw(); });
+    $("#scribeClear").addEventListener("click", () => { strokes = []; redraw(); });
     redraw();
   }
 
   function currentVisual() {
-    if (visualData) return visualData;
-    if (strokes.length) return $("#scribeCanvas").toDataURL("image/png");
+    if (scribeMode === "scan" && visualData) return visualData;
+    if (scribeMode === "sketch" && strokes.length) return $("#scribeCanvas").toDataURL("image/png");
     return "";
   }
 
-  async function saveScribe() {
-    const note = $("#scribeTextInput").value.trim();
+  function setScribeMode(mode) {
+    scribeMode = ["write", "scan", "sketch"].includes(mode) ? mode : "write";
+    $$('[data-scribe-mode]').forEach(button => { const active = button.dataset.scribeMode === scribeMode; button.classList.toggle("is-active", active); button.setAttribute("aria-pressed", String(active)); });
+    $$('[data-scribe-panel]').forEach(panel => { panel.hidden = panel.dataset.scribePanel !== scribeMode; });
+    const hints = { write: "Write and save locally without AI. Ask Vidya to turn the note into the selected outcome.", scan: "Photos save locally. Reading or interpreting the image requires the connected engine.", sketch: "Drawing saves locally. Understanding the sketch requires the connected engine." };
+    $("#scribeStatus").textContent = hints[scribeMode];
+  }
+
+  function setScribeOutcome(outcome) {
+    scribeOutcome = ["tasks", "summary", "explain", "plan"].includes(outcome) ? outcome : "tasks";
+    $$('[data-scribe-outcome]').forEach(button => { const active = button.dataset.scribeOutcome === scribeOutcome; button.classList.toggle("is-active", active); button.setAttribute("aria-pressed", String(active)); });
+  }
+
+  function scribeInstruction() {
+    const goal = {
+      tasks: "Extract proposed tasks with owners, deadlines, dependencies and uncertainty. Let me review them; do not claim they were created.",
+      summary: "Give a concise summary, the important points, conclusion and what is good to know.",
+      explain: "Explain this clearly from first principles, distinguish visible evidence from inference, and ask one coaching question.",
+      plan: "Turn this into a practical action plan with the first step, sequence, risks and checkpoints."
+    }[scribeOutcome];
+    const extra = $("#visualPromptInput").value.trim();
+    return `${goal}${extra ? ` Additional focus: ${extra}` : ""}`;
+  }
+
+  function resetScribe() {
+    $("#scribeTextInput").value = ""; $("#visualPromptInput").value = ""; $("#visualFileInput").value = "";
+    visualData = ""; strokes = []; $("#visualPreview").hidden = true;
+    const canvas = $("#scribeCanvas"); const context = canvas?.getContext("2d", { alpha: false });
+    if (context) { context.fillStyle = "#fff"; context.fillRect(0, 0, canvas.width, canvas.height); }
+    $("#scribeEmpty").hidden = false; setScribeMode("write"); setScribeOutcome("tasks");
+  }
+
+  async function saveScribe({ quiet = false, keepOpen = false } = {}) {
+    const written = $("#scribeTextInput").value.trim();
+    const context = $("#visualPromptInput").value.trim();
     const image = currentVisual();
-    if (!note && !image) { app().toast("Write or draw something first"); return null; }
-    const doc = await app().saveTextSource({ name: `Scribe note · ${new Intl.DateTimeFormat(undefined,{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"}).format(new Date())}`, text: note || "Visual note saved for later interpretation.", type: image ? "visual" : "note", subject: "Inbox", imageData: image });
-    app().toast("Scribe note saved inside the encrypted Library"); return doc;
+    const note = scribeMode === "write" ? written : context;
+    if (!note && !image) { app().toast(scribeMode === "scan" ? "Choose a photo first" : "Write or draw something first"); return null; }
+    const label = scribeMode === "write" ? "Scribe note" : scribeMode === "scan" ? "Scanned visual" : "Sketch";
+    const doc = await app().saveTextSource({ name: `${label} · ${new Intl.DateTimeFormat(undefined,{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"}).format(new Date())}`, text: note || `${label} saved for later interpretation.`, type: image ? "visual" : "note", subject: "Inbox", imageData: image });
+    if (!quiet) app().toast(`${label} saved in Library → @Inbox`);
+    $("#scribeStatus").textContent = `Saved as “${doc.name}” in Library → @Inbox.`;
+    if (!keepOpen) { resetScribe(); app().closeDialog($("#scribeDialog")); }
+    return doc;
   }
 
   async function interpretScribe() {
     const note = $("#scribeTextInput").value.trim();
     const image = currentVisual();
-    const prompt = $("#visualPromptInput").value.trim() || "Extract visible text and tasks, explain the visual and coach me on the next action.";
-    if (!image) { if (!note) { app().toast("Write or draw something first"); return; } app().closeDialog($("#scribeDialog")); app().navigate("coach"); await app().sendCoach(note); return; }
-    await saveScribe();
+    const prompt = scribeInstruction();
+    if (!image && !note) { app().toast(scribeMode === "scan" ? "Choose a photo first" : "Write or draw something first"); return; }
     try {
       $("#interpretVisual").disabled = true; $("#interpretVisual").textContent = "Interpreting…";
-      const answer = await app().analyzeVisual(image, `${prompt}\nUser's handwritten context: ${note || "None"}`);
+      await saveScribe({ quiet: true, keepOpen: true });
+      $("#scribeStatus").textContent = `Original saved in Library → @Inbox. ${image ? "Analyzing with the connected engine…" : "Sending the editable note to Coach…"}`;
+      if (!image) { app().closeDialog($("#scribeDialog")); app().navigate("coach"); resetScribe(); await app().sendCoach(`${prompt}\n\nCAPTURED NOTE:\n${note}`); return; }
+      const answer = await app().analyzeVisual(image, `${prompt}\nUser context: ${note || $("#visualPromptInput").value.trim() || "None"}`);
       lastResponse = answer;
-      app().addChat({ role: "ai", html: app().textToHtml(answer), meta: "Vidya · visual intelligence · Gemini" });
-      app().closeDialog($("#scribeDialog")); app().navigate("coach"); if (state().speakResponses) speak(answer);
+      app().addChat({ role: "ai", html: app().textToHtml(answer), meta: `Vidya · visual intelligence · ${app().hasSecureEngine?.() ? "secure engine" : "experimental Gemini"}` });
+      app().closeDialog($("#scribeDialog")); resetScribe(); app().navigate("coach"); if (state().speakResponses) speak(answer);
     } catch (error) { app().toast(error.message); }
-    finally { $("#interpretVisual").disabled = false; $("#interpretVisual").textContent = "Interpret / send"; }
+    finally { $("#interpretVisual").disabled = false; $("#interpretVisual").textContent = "Ask Vidya"; }
   }
 
   async function copyShortcut(kind) {
@@ -356,22 +472,27 @@
     document.addEventListener("click", event => { const button = event.target.closest("[data-planner-task]"); if (button) app().openTaskDialog(state().tasks.find(task => task.id === button.dataset.plannerTask)); });
     $("#morningBriefButton").addEventListener("click", () => deliverBrief("morning"));
     $("#tomorrowBriefButton").addEventListener("click", () => deliverBrief("tomorrow"));
+    $("#runCommandBrief").addEventListener("click", () => generateCommandBrief("manual"));
+    $("#runScheduledBriefTest").addEventListener("click", () => generateCommandBrief("manual"));
+    $("#commandBriefSchedule").addEventListener("click", () => { app().openDialog("settingsDialog"); setTimeout(() => $("#scheduledBriefSection")?.scrollIntoView({ behavior: "smooth", block: "start" }), 120); });
     $("#assistantBriefOptions").addEventListener("click", event => { const button = event.target.closest("[data-brief-kind]"); if (button) deliverBrief(button.dataset.briefKind); });
     $("#speakLastResponse").addEventListener("click", () => speak(lastResponse || $("#assistantResponse").textContent));
     $("#exportCalendarButton").addEventListener("click", downloadCalendar);
     $("#openShortcutsSetup").addEventListener("click", () => { app().closeDialog($("#settingsDialog")); app().openDialog("shortcutsDialog"); });
     $("#openAssistantFromSettings").addEventListener("click", () => { app().closeDialog($("#settingsDialog")); app().openDialog("assistantDialog"); });
     $("#shortcutsDialog").addEventListener("click", event => { const button = event.target.closest("[data-copy-shortcut]"); if (button) copyShortcut(button.dataset.copyShortcut); });
-    $("#saveScribeNote").addEventListener("click", saveScribe);
+    $("#scribeModeTabs").addEventListener("click", event => { const button = event.target.closest("[data-scribe-mode]"); if (button) setScribeMode(button.dataset.scribeMode); });
+    $("#scribeOutcomeButtons").addEventListener("click", event => { const button = event.target.closest("[data-scribe-outcome]"); if (button) setScribeOutcome(button.dataset.scribeOutcome); });
+    $("#saveScribeNote").addEventListener("click", () => saveScribe());
     $("#interpretVisual").addEventListener("click", interpretScribe);
-    $("#visualFileInput").addEventListener("change", event => { const file = event.target.files?.[0]; if (!file) return; if (file.size > 12 * 1024 * 1024) { app().toast("Choose an image under 12 MB"); return; } const reader = new FileReader(); reader.onload = () => { visualData = String(reader.result); $("#visualPreview").src = visualData; $("#visualPreview").hidden = false; }; reader.readAsDataURL(file); });
+    $("#visualFileInput").addEventListener("change", event => { const file = event.target.files?.[0]; if (!file) return; if (file.size > 12 * 1024 * 1024) { app().toast("Choose an image under 12 MB"); return; } const reader = new FileReader(); reader.onload = () => { visualData = String(reader.result); $("#visualPreview").src = visualData; $("#visualPreview").hidden = false; $("#scribeStatus").textContent = "Photo ready. Save it locally or Ask Vidya for the selected outcome."; }; reader.readAsDataURL(file); });
     $("#readSourceButton").addEventListener("click", () => { const title = $("#sourceDialogTitle").textContent; const summary = $("#sourceDialogBody .source-summary p")?.textContent || ""; speak(`${title}. ${summary}`); });
     $("#readStoryButton").addEventListener("click", () => speak($("#storyDialog").textContent.replace(/Read aloud|Create action|Open source|Ask Coach/g, " ")));
     $("#taskDialog").addEventListener("click", event => { const button = event.target.closest("[data-task-preset]"); if (!button) return; const input = $("#taskDueInput"); if (button.dataset.taskPreset === "clear") { input.value = ""; return; } const date = new Date(); if (button.dataset.taskPreset === "tomorrow") date.setDate(date.getDate() + 1); if (button.dataset.taskPreset === "week") date.setDate(date.getDate() + 7); date.setHours(button.dataset.taskPreset === "today" ? Math.max(9, date.getHours() + 1) : 9, 0, 0, 0); const offset = date.getTimezoneOffset() * 60000; input.value = new Date(date - offset).toISOString().slice(0, 16); });
     window.addEventListener("vidya-response", event => { lastResponse = event.detail.text || ""; response(lastResponse, event.detail.html || ""); if (state()?.speakResponses) speak(lastResponse); });
-    window.addEventListener("vidya-statechange", () => { if (state()) renderPlanner(); });
+    window.addEventListener("vidya-statechange", () => { if (state()) { renderPlanner(); renderCommandBrief(); } });
     window.addEventListener("hashchange", handleFragment);
-    setupCanvas(); renderPlanner(); handleFragment();
+    setupCanvas(); setScribeMode("write"); setScribeOutcome("tasks"); renderPlanner(); renderCommandBrief(); handleFragment(); syncLatestBrief();
   }
 
   window.addEventListener("vidya-ready", wire, { once: true });

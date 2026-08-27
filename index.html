@@ -6,12 +6,13 @@
   <meta name="theme-color" content="#080a0f">
   <meta name="description" content="Vidya is a private personal intelligence system for work, learning, memory and culture.">
   <meta name="referrer" content="strict-origin-when-cross-origin">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://commons.wikimedia.org https://api.openalex.org https://generativelanguage.googleapis.com https://r.jina.ai; img-src 'self' data: blob: https:; font-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://*.supabase.co https://commons.wikimedia.org https://api.openalex.org https://generativelanguage.googleapis.com https://r.jina.ai; img-src 'self' data: blob: https:; font-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Vidya">
   <title>Vidya — Personal Intelligence</title>
   <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon-192.png">
   <link rel="apple-touch-icon" href="icon-180.png">
   <link rel="stylesheet" href="styles.css">
 </head>
@@ -111,6 +112,20 @@
             </div>
             <button class="quiet-button refresh-button" id="refreshBrief"><span>↻</span> Refresh</button>
           </header>
+
+          <section class="command-brief" id="commandBrief" aria-labelledby="commandBriefTitle">
+            <div class="command-brief-head">
+              <div><p class="eyebrow">Tasks · research · Library · coaching</p><h2 id="commandBriefTitle">Your daily command brief</h2><p id="commandBriefGenerated">A useful local brief is ready now. Connect the secure engine for scheduled research synthesis.</p></div>
+              <span class="engine-badge" id="commandBriefStatus">Local</span>
+            </div>
+            <div class="command-brief-grid">
+              <article><small>Act now</small><strong id="commandBriefTasks">Review your first priority</strong></article>
+              <article><small>Research watch</small><strong id="commandBriefResearch">Your unread edition is ready</strong></article>
+              <article><small>Library signal</small><strong id="commandBriefLibrary">Add a source to build expertise</strong></article>
+              <article><small>Coach prompt</small><strong id="commandBriefCoach">Ask what decision this changes</strong></article>
+            </div>
+            <div class="command-brief-actions"><button class="secondary-button" id="runCommandBrief">Build fresh brief</button><button class="text-button" id="commandBriefSchedule">Schedule & delivery</button></div>
+          </section>
 
           <section class="daily-pulse" aria-label="Daily pulse">
             <button class="pulse-primary" data-nav="today">
@@ -258,6 +273,7 @@
           <div class="syntax-hint"><span><b>@</b> subject</span><span><b>#</b> bucket</span><span id="composerStatus">Library-first</span></div>
           <div class="composer-row">
             <textarea id="coachInput" rows="1" placeholder="Ask anything, or say: @Work remind me tomorrow to review the release #urgent"></textarea>
+            <button type="button" class="source-button" id="coachSourceButton" aria-label="Choose Library sources">▤</button>
             <button type="button" class="voice-button" id="voiceButton" aria-label="Talk to Vidya">◉</button>
             <button class="send-button" aria-label="Send">↑</button>
           </div>
@@ -289,6 +305,12 @@
             <div><strong id="libraryPrivacy">Local</strong><span>storage mode</span></div>
           </section>
 
+          <section class="library-guide" aria-label="How to use your Library">
+            <div><span>1</span><p><b>Files</b><small>Every uploaded item appears below and stays encrypted in this browser.</small></p></div>
+            <div><span>2</span><p><b>Subjects</b><small>@Subjects are the broad shelves; file type and search narrow the shelf.</small></p></div>
+            <div><span>3</span><p><b>Ask</b><small>Tap Ask on one file, or select several, then question them in Coach.</small></p></div>
+          </section>
+
           <section class="library-workspace">
             <div class="source-browser">
               <div class="section-heading">
@@ -297,7 +319,7 @@
               </div>
               <div class="library-toolbar" aria-label="Find and arrange Library sources">
                 <label class="library-search"><span>⌕</span><input id="librarySearchInput" type="search" autocomplete="off" placeholder="Search titles, subjects or concepts"></label>
-                <select id="libraryTypeFilter" aria-label="Filter sources by file type"><option value="all">All types</option><option value="pdf">PDF</option><option value="docx">DOCX</option><option value="txt">Text</option><option value="brief">Saved briefs</option></select>
+                <select id="libraryTypeFilter" aria-label="Filter sources by file type"><option value="all">All types</option><option value="pdf">PDF</option><option value="docx">DOCX</option><option value="txt">Text</option><option value="web">Articles</option><option value="note">Notes</option><option value="visual">Visuals</option><option value="brief">Saved briefs</option></select>
                 <select id="librarySort" aria-label="Sort Library sources"><option value="recent">Recent</option><option value="name">A–Z</option></select>
               </div>
               <div class="subject-tabs" id="subjectTabs" aria-label="Filter Library by subject"></div>
@@ -422,8 +444,18 @@
     <div class="dialog-shell source-dialog">
       <header><div><p class="eyebrow" id="sourceDialogType">Source</p><h2 id="sourceDialogTitle">Document</h2></div><button class="icon-button" type="button" data-close-dialog aria-label="Close">×</button></header>
       <div id="sourceDialogBody"></div>
-      <div class="dialog-actions"><button class="danger-button" id="deleteSourceButton">Remove</button><button class="secondary-button" id="readSourceButton">Read summary</button><button class="secondary-button" id="sourceToTaskButton">Create follow-up</button><button class="primary-button" id="askSourceButton">Ask Coach</button></div>
+      <div class="dialog-actions"><button class="danger-button" id="deleteSourceButton">Remove</button><button class="secondary-button" id="readSourceButton">Read summary</button><button class="secondary-button" id="sourceToTaskButton">Create follow-up</button><button class="primary-button" id="askSourceButton">Ask this file</button></div>
     </div>
+  </dialog>
+
+  <dialog id="sourcePickerDialog">
+    <form class="dialog-shell source-picker-dialog" id="sourcePickerForm">
+      <header><div><p class="eyebrow">Coach evidence</p><h2>Choose Library sources</h2><p>Select one file for a precise answer or a small set for comparison.</p></div><button class="icon-button" type="button" data-close-dialog aria-label="Close">×</button></header>
+      <label class="library-search"><span>⌕</span><input id="sourcePickerSearch" type="search" autocomplete="off" placeholder="Find a file or @subject"></label>
+      <div class="source-picker-list" id="sourcePickerList"></div>
+      <div class="source-picker-help">Coach will cite selected files. Clear the selection to search the current @Subject instead.</div>
+      <div class="dialog-actions"><button type="button" class="quiet-button" id="clearCoachSources">Clear selection</button><button class="primary-button">Use selected sources</button></div>
+    </form>
   </dialog>
 
   <dialog id="storyDialog">
@@ -459,13 +491,24 @@
 
   <dialog id="scribeDialog">
     <div class="dialog-shell scribe-dialog">
-      <header><div><p class="eyebrow">Apple Pencil + visual intelligence</p><h2>Scribe</h2><p>Use iPad Scribble in the text field, or draw/attach an image for visual interpretation.</p></div><button class="icon-button" type="button" data-close-dialog aria-label="Close">×</button></header>
-      <label class="scribe-text"><span>Write an instruction with Apple Pencil</span><textarea id="scribeTextInput" rows="5" placeholder="Write here with Scribble. iPad converts your handwriting into text."></textarea></label>
-      <div class="scribe-canvas-shell"><canvas id="scribeCanvas" width="1200" height="620" aria-label="Freehand Apple Pencil canvas"></canvas><div class="scribe-empty" id="scribeEmpty">Draw a sketch, handwritten page, diagram or workflow.</div></div>
-      <div class="scribe-tools"><button class="quiet-button" id="scribeUndo" type="button">Undo</button><button class="quiet-button" id="scribeClear" type="button">Clear ink</button><label class="quiet-button file-button">Add photo<input id="visualFileInput" type="file" accept="image/*" capture="environment" hidden></label></div>
-      <label class="form-field"><span>What should Vidya do with the visual?</span><input id="visualPromptInput" placeholder="Extract tasks, explain the diagram and coach me"></label>
-      <img class="visual-preview" id="visualPreview" alt="Selected visual preview" hidden>
-      <div class="dialog-actions"><button class="secondary-button" id="saveScribeNote" type="button">Save to Library</button><button class="primary-button" id="interpretVisual" type="button">Interpret / send</button></div>
+      <header><div><p class="eyebrow">Apple Pencil + camera + visual intelligence</p><h2>Capture something useful</h2><p>Choose one input. Vidya will save the original and turn it into the outcome you select.</p></div><button class="icon-button" type="button" data-close-dialog aria-label="Close">×</button></header>
+      <div class="scribe-mode-tabs" id="scribeModeTabs" aria-label="Capture method"><button class="is-active" type="button" data-scribe-mode="write">Write</button><button type="button" data-scribe-mode="scan">Scan / photo</button><button type="button" data-scribe-mode="sketch">Sketch</button></div>
+      <section class="scribe-panel" data-scribe-panel="write">
+        <label class="scribe-text"><span>Write with Apple Pencil Scribble or the keyboard</span><textarea id="scribeTextInput" rows="7" placeholder="Write a meeting note, instruction, decision or rough idea here…"></textarea></label>
+        <p class="scribe-tip">On iPad, tap this field with Apple Pencil and write normally. Scribble converts handwriting to editable text.</p>
+      </section>
+      <section class="scribe-panel" data-scribe-panel="scan" hidden>
+        <label class="visual-drop file-button"><span>▧</span><b>Take a photo or choose an image</b><small>Whiteboard, printed page, screenshot, chart or handwritten note</small><input id="visualFileInput" type="file" accept="image/*" capture="environment" hidden></label>
+        <img class="visual-preview" id="visualPreview" alt="Selected visual preview" hidden>
+      </section>
+      <section class="scribe-panel" data-scribe-panel="sketch" hidden>
+        <div class="scribe-canvas-shell"><canvas id="scribeCanvas" width="1200" height="620" aria-label="Freehand Apple Pencil canvas"></canvas><div class="scribe-empty" id="scribeEmpty">Draw a process, dependency map, diagram or rough note.</div></div>
+        <div class="scribe-tools"><button class="quiet-button" id="scribeUndo" type="button">Undo</button><button class="quiet-button" id="scribeClear" type="button">Clear ink</button></div>
+      </section>
+      <div class="scribe-outcomes"><small>Turn it into</small><div id="scribeOutcomeButtons"><button class="is-active" type="button" data-scribe-outcome="tasks">Tasks</button><button type="button" data-scribe-outcome="summary">Summary</button><button type="button" data-scribe-outcome="explain">Explanation</button><button type="button" data-scribe-outcome="plan">Action plan</button></div></div>
+      <label class="form-field"><span>Optional instruction</span><input id="visualPromptInput" placeholder="Example: focus on deadlines, owners and risks"></label>
+      <p class="scribe-status" id="scribeStatus">Writing and saving work without AI. Interpreting an image requires the connected engine.</p>
+      <div class="dialog-actions"><button class="secondary-button" id="saveScribeNote" type="button">Save original</button><button class="primary-button" id="interpretVisual" type="button">Ask Vidya</button></div>
     </div>
   </dialog>
 
@@ -485,7 +528,9 @@
     <form class="dialog-shell settings-dialog" id="settingsForm">
       <header><div><p class="eyebrow">Preferences</p><h2>Settings</h2></div><button class="icon-button" type="button" data-close-dialog aria-label="Close">×</button></header>
       <section><h3>Appearance</h3><div class="theme-picker" id="themePicker"><button type="button" data-theme="system">System</button><button type="button" data-theme="night">Night</button><button type="button" data-theme="paper">Paper</button><button type="button" data-theme="aurora">Aurora</button></div></section>
-      <section><h3>Intelligence</h3><p>Local intelligence needs no key. An optional Gemini key is encrypted at rest in this vault, but the browser still sends it directly to Google—use it only for non-confidential experiments. Production AI belongs behind a protected server function.</p><label class="form-field"><span>Gemini API key · optional experiment</span><input type="password" id="geminiKeyInput" placeholder="Encrypted inside this local vault" autocomplete="off"></label><label class="form-field"><span>Claude API key · reserved for a server proxy</span><input type="password" id="claudeKeyInput" placeholder="Not called directly by this build" autocomplete="off"></label><div class="engine-state" id="engineState"></div></section>
+      <section><h3>Intelligence engine</h3><p>The recommended setup keeps the Gemini key in a Supabase Edge Function. Paste only your function URL and the personal access token you created during setup.</p><label class="form-field"><span>Secure engine URL</span><input type="url" id="apiProxyInput" placeholder="https://YOUR-PROJECT.supabase.co/functions/v1/vidya-ai" autocomplete="off"></label><label class="form-field"><span>Personal engine access token</span><input type="password" id="apiAccessTokenInput" placeholder="Stored inside this encrypted vault" autocomplete="off"></label><div class="settings-button-row"><button type="button" class="secondary-button" id="testEngineButton">Test secure engine</button></div><div class="engine-state" id="engineState"></div><details class="advanced-engine"><summary>Experimental direct key · non-confidential testing only</summary><p>A direct browser key can be extracted by malicious page code. Use it only before the secure function is connected.</p><label class="form-field"><span>Gemini API key</span><input type="password" id="geminiKeyInput" placeholder="Encrypted locally, but exposed during requests" autocomplete="off"></label><label class="form-field"><span>Claude API key · reserved</span><input type="password" id="claudeKeyInput" placeholder="Not called by this build" autocomplete="off"></label></details></section>
+      <section><h3>AI cost monitor</h3><div class="cost-monitor"><div><small>This month · estimate</small><strong id="costMonthTotal">$0.00</strong><span id="costBudgetStatus">of $10.00 budget</span></div><div class="cost-meter"><i id="costMeterFill"></i></div><div class="cost-stats"><span><b id="costRequestCount">0</b> requests</span><span><b id="costTokenCount">0</b> tokens</span><span><b id="costSearchCount">0</b> searches</span></div></div><label class="form-field"><span>Monthly AI budget warning · USD</span><input type="number" id="monthlyBudgetInput" min="1" max="500" step="1" value="10"></label><p class="cost-note" id="costMonitorNote">Local actions cost $0. Provider dashboards remain the billing source of truth.</p><button type="button" class="text-button" id="resetCostMonitor">Reset local usage estimate</button></section>
+      <section id="scheduledBriefSection"><h3>Scheduled daily brief</h3><p>With the secure backend, Vidya can run while this website is closed, save a briefing, and notify the installed app. Without it, the brief is rebuilt when you open Vidya.</p><label class="switch-row"><span><b>Generate daily command brief</b><small>Tasks, deadlines, unread research, recent Library changes and a coaching prompt.</small></span><input type="checkbox" id="scheduledBriefInput"></label><div class="form-grid"><label class="form-field"><span>Delivery time</span><input type="time" id="briefTimeInput" value="07:00"></label><label class="form-field"><span>Time zone</span><input id="briefTimezoneInput" readonly></label></div><div class="settings-button-row"><button type="button" class="secondary-button" id="runScheduledBriefTest">Generate test brief</button></div><small class="settings-footnote" id="briefScheduleState">Local mode · runs when the app opens.</small></section>
       <section><h3>Assistant, voice & discovery</h3><label class="switch-row"><span><b>Speak assistant responses</b><small>Use the device voice to read concise replies aloud.</small></span><input type="checkbox" id="speakResponsesInput" checked></label><label class="switch-row"><span><b>Discovery lane</b><small>Occasionally suggest adjacent and unfamiliar topics with a clear “why shown.”</small></span><input type="checkbox" id="discoveryModeInput" checked></label><label class="switch-row"><span><b>Public article reader</b><small>Allow public URLs to be sent to Jina Reader when publishers block direct browser reading. Never use this for confidential pages.</small></span><input type="checkbox" id="publicReaderInput"></label><div class="settings-button-row"><button type="button" class="secondary-button" id="openShortcutsSetup">Set up Siri Shortcuts</button><button type="button" class="quiet-button" id="openAssistantFromSettings">Test assistant</button></div></section>
       <section><h3>Healthy engagement</h3><label class="switch-row"><span><b>Finite daily edition</b><small>No infinite feed. Vidya tells you when you are caught up.</small></span><input type="checkbox" id="finiteFeedInput" checked></label><label class="switch-row"><span><b>Gentle task prompts</b><small>Prompt only when a task is due or meaningfully blocked.</small></span><input type="checkbox" id="gentlePromptsInput" checked></label></section>
       <section><h3>Security & access</h3><p id="settingsSecurityText">This browser uses an encrypted local vault.</p><label class="form-field"><span>Auto-lock</span><select id="autoLockInput"><option value="1">After 1 minute</option><option value="5">After 5 minutes</option><option value="15">After 15 minutes</option><option value="30">After 30 minutes</option></select></label><div class="settings-button-row"><button type="button" class="secondary-button" id="settingsDeviceUnlock">Set up device unlock</button><button type="button" class="quiet-button" id="changePasswordButton">Change password</button><button type="button" class="quiet-button" id="settingsLockNow">Lock now</button></div><small class="settings-footnote">On iPhone, device unlock may use Face ID, Touch ID or the device passcode. Vidya never receives your biometric data.</small></section>
