@@ -1,7 +1,7 @@
 # Vidya completion test report
 
 Tested: August 27, 2026  
-Build cache: `vidya-library-complete-2026-08-27-v5`
+Build cache: `vidya-library-complete-2026-08-27-v6`
 
 ## Outcome
 
@@ -24,6 +24,7 @@ or production credential was used.
 | Could not organize Inbox | No obvious move workflow in the shipped view | Source details include **Stored in subject** | Fixed |
 | Mixed uploads hid failures | Last success toast replaced earlier errors | One result now reports added and skipped items; file input resets | Fixed |
 | Failed document reader showed `Undefined` | Browser script errors are events and do not contain an `error.message` | Normalize every failure, add PDF/DOCX-specific errors and explain the `file://` limitation | Fixed and fault-injection tested |
+| GitHub deployment omitted `vendor/pdf.min.js` | The deployed asset path returned an error, so PDF.js never initialized | Added a pinned, integrity-checked fallback reader and made optional parser caching non-blocking | Fixed; PDF indexed with local reader and worker deliberately blocked |
 | Duplicate/unsupported files looked ignored | Error feedback was transient and overwritten | Explicit `Nothing added` / `skipped` result | Fixed |
 | More than five Coach sources failed silently | Form sliced the selection only at submit | Sixth selection is rejected immediately with explanation | Fixed |
 | A long file could monopolize a comparison | Passage ranking did not guarantee one result per selected source | Retrieval now represents every selected file before adding extra passages | Fixed |

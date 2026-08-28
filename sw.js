@@ -1,8 +1,9 @@
-const CACHE = "vidya-library-complete-2026-08-27-v5";
-const CORE = ["./", "./index.html", "./styles.css", "./auth.js", "./app.js", "./assistant.js", "./config.js", "./manifest.json", "./icon-180.png", "./icon-192.png", "./icon-512.png", "./vendor/pdf.min.js", "./vendor/pdf.worker.min.js", "./vendor/mammoth.browser.min.js"];
+const CACHE = "vidya-library-complete-2026-08-27-v6";
+const CORE = ["./", "./index.html", "./styles.css", "./auth.js", "./app.js", "./assistant.js", "./config.js", "./manifest.json", "./icon-180.png", "./icon-192.png", "./icon-512.png"];
+const OPTIONAL = ["./vendor/pdf.min.js", "./vendor/pdf.worker.min.js", "./vendor/mammoth.browser.min.js"];
 
 self.addEventListener("install", event => {
-  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(CORE)).then(() => self.skipWaiting()));
+  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(CORE).then(() => Promise.allSettled(OPTIONAL.map(asset => cache.add(asset))))).then(() => self.skipWaiting()));
 });
 
 self.addEventListener("activate", event => {

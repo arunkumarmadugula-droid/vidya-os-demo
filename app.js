@@ -1252,24 +1252,64 @@
     return new Error(`The document reader (${url}) could not load.${fileModeHint}`);
   }
 
-  function loadScript(url) {
+  const DOCUMENT_READERS = {
+    pdf: {
+      local: "vendor/pdf.min.js",
+      remote: "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js",
+      integrity: "sha256-W1eZ5vjGgGYyB6xbQu4U7tKkBvp69I9QwVTwwLFWaUY=",
+      workerLocal: "vendor/pdf.worker.min.js",
+      workerRemote: "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"
+    },
+    docx: {
+      local: "vendor/mammoth.browser.min.js",
+      remote: "https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js",
+      integrity: "sha256-WW71IjnlLY7jzuELLuSnJZar+QDQ5PRoWT+Vbp8YCbA="
+    }
+  };
+
+  function loadScript(url, integrity = "") {
     return new Promise((resolve, reject) => {
       let existing = document.querySelector(`script[src="${url}"]`);
       if (existing?.dataset.failed) { existing.remove(); existing = null; }
       if (existing) {
-        if (existing.dataset.ready) resolve();
+        if (existing.dataset.ready) resolve(url);
         else {
-          existing.addEventListener("load", resolve, { once: true });
+          existing.addEventListener("load", () => resolve(url), { once: true });
           existing.addEventListener("error", () => reject(scriptLoadError(url)), { once: true });
         }
         return;
       }
       const script = document.createElement("script");
       script.src = url;
-      script.onload = () => { script.dataset.ready = "1"; resolve(); };
+      if (integrity) { script.integrity = integrity; script.crossOrigin = "anonymous"; }
+      script.onload = () => { script.dataset.ready = "1"; resolve(url); };
       script.onerror = () => { script.dataset.failed = "1"; reject(scriptLoadError(url)); };
       document.head.appendChild(script);
     });
+  }
+
+  async function loadDocumentReader(reader, label) {
+    try {
+      return await loadScript(reader.local);
+    } catch (localError) {
+      try {
+        return await loadScript(reader.remote, reader.integrity);
+      } catch (remoteError) {
+        throw new Error(`${label} reader could not load from the app or its secure fallback. App copy: ${errorMessage(localError)} Fallback: ${errorMessage(remoteError)}`);
+      }
+    }
+  }
+
+  async function pdfWorkerUrl(readerSource) {
+    const reader = DOCUMENT_READERS.pdf;
+    if (readerSource === reader.local && location.protocol !== "file:") {
+      const localUrl = new URL(reader.workerLocal, document.baseURI).href;
+      try {
+        const response = await fetch(localUrl, { method: "HEAD", cache: "no-store" });
+        if (response.ok) return localUrl;
+      } catch {}
+    }
+    return reader.workerRemote;
   }
 
   async function extractFile(file) {
@@ -1277,9 +1317,9 @@
     if (["txt", "md", "csv", "json", "log"].includes(ext)) return file.text();
     if (ext === "pdf") {
       try {
-        await loadScript("vendor/pdf.min.js");
+        const readerSource = await loadDocumentReader(DOCUMENT_READERS.pdf, "PDF");
         if (!window.pdfjsLib?.getDocument) throw new Error("The PDF reader was not initialized");
-        window.pdfjsLib.GlobalWorkerOptions.workerSrc = new URL("vendor/pdf.worker.min.js", document.baseURI).href;
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc = await pdfWorkerUrl(readerSource);
         const pdf = await window.pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
         let text = "";
         for (let pageNumber = 1; pageNumber <= Math.min(pdf.numPages, 400); pageNumber += 1) {
@@ -1294,7 +1334,7 @@
     }
     if (ext === "docx") {
       try {
-        await loadScript("vendor/mammoth.browser.min.js");
+        await loadDocumentReader(DOCUMENT_READERS.docx, "Word document");
         if (!window.mammoth?.extractRawText) throw new Error("The Word document reader was not initialized");
         const result = await window.mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() }); return result.value || "";
       } catch (error) {

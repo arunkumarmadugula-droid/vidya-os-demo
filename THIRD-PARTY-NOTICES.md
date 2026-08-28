@@ -1,7 +1,10 @@
 # Pinned browser parsers
 
-Vidya stores these parser builds locally so opening a PDF or DOCX does not load
-executable parser code from a third-party CDN at runtime.
+Vidya stores these parser builds locally and always tries the local copy first.
+If a GitHub deployment accidentally omits the `vendor` directory, Vidya can use
+the same version-pinned cdnjs build as a recovery path. The PDF and DOCX main
+scripts use the integrity hashes below. For confidential work, deploy all local
+vendor files so the fallback is not needed.
 
 | File | Version/source | SHA-256 |
 |---|---|---|
