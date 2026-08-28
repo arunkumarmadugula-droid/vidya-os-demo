@@ -4,6 +4,10 @@ This is the shortest secure production path for the personal beta: one Supabase
 project and one Google Gemini API key. GitHub Pages hosts the screen; Supabase
 runs the private server code and schedules; Gemini supplies the intelligence.
 
+Inside Vidya, open **You → Settings → Intelligence engine → API setup guide**
+for the condensed seven-step checklist. This document contains the complete
+commands, secret names, security boundaries and live verification requests.
+
 ## What works with and without cloud AI
 
 Without an API, Vidya can still keep encrypted local tasks and Library records,

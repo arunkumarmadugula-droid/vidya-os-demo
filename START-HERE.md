@@ -24,11 +24,11 @@ server-side cost records. It uses only one Supabase project and one Gemini key.
 From PowerShell:
 
 ```powershell
-cd "C:\Users\arunk\Documents\Codex\2026-08-06\as\outputs\Vidya-OS-FUNCTIONAL-BETA-2026-08-26"
-py -m http.server 4192 --bind 127.0.0.1
+cd "C:\Users\arunk\Documents\Codex\2026-08-06\as\outputs\VIDYA-FINAL-FUNCTIONAL-WEB-APP-2026-08-27"
+py -m http.server 4193 --bind 127.0.0.1
 ```
 
-Open `http://127.0.0.1:4192/index.html`. Use your permanent HTTPS website for
+Open `http://127.0.0.1:4193/index.html`. Use your permanent HTTPS website for
 iPhone/iPad installation and device unlock.
 
 ## Replace the GitHub Pages deployment
@@ -47,7 +47,7 @@ iPhone/iPad installation and device unlock.
 Follow `Documentation/CLOUD-AI-SETUP.md` from top to bottom. After deploying the
 included Supabase migrations and `vidya-ai` Edge Function, open Vidya:
 
-1. **Settings → Intelligence engine**.
+1. **Settings → Intelligence engine → API setup guide**.
 2. Paste the Edge Function URL and personal owner token.
 3. Tap **Test secure engine**.
 4. Set the monthly budget warning and daily brief time.

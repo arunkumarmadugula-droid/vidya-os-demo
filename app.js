@@ -976,20 +976,29 @@
       ? libraryDocs.filter(doc => subjectScope.some(subject => subjectKey(doc.subject) === subjectKey(subject)))
       : state.selectedSubject === "All" ? libraryDocs : libraryDocs.filter(doc => doc.subject === state.selectedSubject);
     const named = libraryDocs.filter(doc => lower.includes(doc.name.toLowerCase()) || lower.includes(doc.name.replace(/\.[^.]+$/, "").toLowerCase()));
+    limit = Math.max(limit, Math.min(5, explicit.length || named.length));
     const primary = explicit.length ? explicit : named.length ? named.slice(0, 5) : globallyScoped;
     const previous = primary.flatMap(doc => doc.comparison?.previousId ? libraryDocs.filter(item => item.id === doc.comparison.previousId) : []);
     const scoped = [...new Map([...primary, ...previous].map(doc => [doc.id, doc])).values()];
     if (!scoped.length) return [];
-    const ranked = scoped.flatMap(doc => doc.chunks.map(chunk => {
+    const candidates = scoped.flatMap(doc => doc.chunks.map(chunk => {
       const words = normalizeWords(chunk.text);
       const frequency = new Map(); words.forEach(word => frequency.set(word, (frequency.get(word) || 0) + 1));
       const overlap = queryWords.reduce((score, word) => score + (frequency.get(word) || 0), 0);
       const phraseBonus = chunk.text.toLowerCase().includes(query.toLowerCase().slice(0, 42)) ? 4 : 0;
       return { doc, chunk, score: overlap / Math.sqrt(Math.max(1, words.length)) + phraseBonus };
-    })).filter(item => item.score > 0).sort((a, b) => b.score - a.score).slice(0, limit);
+    })).filter(item => item.score > 0).sort((a, b) => b.score - a.score);
+    let ranked = candidates.slice(0, limit);
     if (explicit.length || named.length) {
+      ranked = [];
       scoped.forEach(doc => {
-        if (ranked.length < limit && !ranked.some(item => item.doc.id === doc.id) && doc.chunks[0]) ranked.push({ doc, chunk: doc.chunks[0], score: .001 });
+        if (ranked.length >= limit) return;
+        const best = candidates.find(item => item.doc.id === doc.id);
+        if (best) ranked.push(best);
+        else if (doc.chunks[0]) ranked.push({ doc, chunk: doc.chunks[0], score: .001 });
+      });
+      candidates.forEach(item => {
+        if (ranked.length < limit && !ranked.some(existing => existing.chunk.id === item.chunk.id)) ranked.push(item);
       });
     }
     return ranked;
@@ -1266,8 +1275,10 @@
     const files = [...fileList].slice(0, 30);
     if (!files.length) return;
     const selected = state.selectedSubject === "All" ? "Inbox" : state.selectedSubject;
-    $("#chooseFilesButton").disabled = true; $("#chooseFilesButton").textContent = `Reading 0/${files.length}`;
-    let added = 0;
+    const uploadButtons = [$("#chooseFilesButton"), $("#libraryUploadButton")].filter(Boolean);
+    uploadButtons.forEach(button => { button.disabled = true; });
+    $("#chooseFilesButton").textContent = `Reading 0/${files.length}`;
+    let added = 0; const failures = [];
     for (let index = 0; index < files.length; index += 1) {
       const file = files[index]; $("#chooseFilesButton").textContent = `Reading ${index + 1}/${files.length}`;
       try {
@@ -1275,16 +1286,20 @@
         const text = await extractFile(file);
         if (text.trim().length < 20) throw new Error("No readable text found");
         const duplicate = libraryDocs.find(doc => doc.hash === `${text.length}:${text.slice(0, 80)}`);
-        if (duplicate) { toast(`${file.name} is already in your library`); continue; }
+        if (duplicate) { failures.push(`${file.name}: duplicate`); continue; }
         const doc = buildDocument({ name: file.name, text, type: file.name.split(".").pop(), subject: selected });
         const previous = libraryDocs.find(item => item.subject === selected && releaseBaseName(item.name) && releaseBaseName(item.name) === releaseBaseName(doc.name));
         if (previous) doc.comparison = compareDocuments(previous, doc);
         await dbPut(doc); libraryDocs.unshift(doc); state.latestDocumentId = doc.id; releaseTaskSuggestions(doc); added += 1;
-      } catch (error) { toast(`${file.name}: ${error.message}`); }
+      } catch (error) { failures.push(`${file.name}: ${error.message}`); }
     }
     saveState(); renderLibrary(); renderTasks(); renderContext();
-    $("#chooseFilesButton").disabled = false; $("#chooseFilesButton").textContent = "Choose files";
-    if (added) toast(`${added} source${added === 1 ? "" : "s"} indexed locally with summaries and searchable passages`);
+    uploadButtons.forEach(button => { button.disabled = false; });
+    $("#chooseFilesButton").textContent = "Choose files";
+    $("#libraryFileInput").value = "";
+    if (added && failures.length) toast(`${added} added · ${failures.length} skipped. ${failures[0]}`);
+    else if (added) toast(`${added} source${added === 1 ? "" : "s"} indexed locally with summaries and searchable passages`);
+    else if (failures.length) toast(`Nothing added. ${failures[0]}`);
   }
 
   function setCoachSources(ids = []) {
@@ -1329,7 +1344,7 @@
     $("#memoryPulse").textContent = libraryDocs.length ? `${libraryDocs.length} source${libraryDocs.length === 1 ? "" : "s"} ready to answer` : "Ready for new material";
     const passageCount = libraryDocs.reduce((sum, doc) => sum + doc.chunks.length, 0);
     $("#memoryPulseMeta").textContent = libraryDocs.length ? `${passageCount} searchable passage${passageCount === 1 ? "" : "s"}` : "Local and private";
-    const tabs = ["All", ...subjectsFromDocs.sort((a, b) => a.localeCompare(b))];
+    const tabs = ["All", ...new Set([...state.subjects, ...subjectsFromDocs])].filter(Boolean);
     $("#subjectTabs").innerHTML = tabs.map(subject => `<button class="${state.selectedSubject === subject ? "is-active" : ""}" aria-pressed="${state.selectedSubject === subject}" data-library-subject="${esc(subject)}">${subject === "All" ? "All" : `@${esc(subject)}`}</button>`).join("");
     let shown = state.selectedSubject === "All" ? [...libraryDocs] : libraryDocs.filter(doc => doc.subject === state.selectedSubject);
     const query = librarySearch.trim().toLowerCase();
@@ -1337,7 +1352,10 @@
     if (libraryType !== "all") shown = shown.filter(doc => libraryType === "txt" ? ["txt", "md", "csv", "json", "log"].includes(String(doc.type).toLowerCase()) : String(doc.type).toLowerCase() === libraryType);
     shown.sort((a, b) => librarySort === "name" ? a.name.localeCompare(b.name) : new Date(b.addedAt) - new Date(a.addedAt));
     const selected = new Set(state.coachSourceIds || []);
-    $("#sourceList").innerHTML = shown.length ? shown.map(doc => `<article class="source-item ${selected.has(doc.id) ? "is-selected" : ""}"><button class="source-item-main" data-source-id="${esc(doc.id)}"><span class="source-type">${esc(String(doc.type).toUpperCase().slice(0, 4))}</span><span class="source-copy"><strong>${esc(doc.name)}</strong><p>@${esc(doc.subject)} · ${doc.chunks.length} passage${doc.chunks.length === 1 ? "" : "s"} · ${esc(new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }).format(new Date(doc.addedAt)))}</p><small>${esc(doc.summary || "Ready for local search and Coach questions.")}</small></span></button><div class="source-actions"><button class="${selected.has(doc.id) ? "is-selected" : ""}" data-toggle-coach-source="${esc(doc.id)}" aria-label="${selected.has(doc.id) ? "Remove from" : "Add to"} Coach sources">${selected.has(doc.id) ? "✓" : "＋"}</button><button data-ask-source="${esc(doc.id)}">Ask</button></div></article>`).join("") : `<div class="library-empty"><h3>${librarySearch || libraryType !== "all" ? "No matching sources" : "No sources in this subject"}</h3><p>${librarySearch || libraryType !== "all" ? "Try a broader search or clear the file-type filter." : "Add a work release, paper or note. Vidya will read and organize it locally."}</p>${librarySearch || libraryType !== "all" ? "" : `<button class="primary-button" data-trigger-upload>Choose material</button>`}</div>`;
+    $("#sourceList").innerHTML = shown.length ? shown.map(doc => {
+      const tags = (doc.keywords || []).slice(0, 2).map(word => `#${esc(String(word).toLowerCase().replace(/\s+/g, "-"))}`).join(" ");
+      return `<article class="source-item ${selected.has(doc.id) ? "is-selected" : ""}"><button class="source-item-main" data-source-id="${esc(doc.id)}"><span class="source-type">${esc(String(doc.type).toUpperCase().slice(0, 4))}</span><span class="source-copy"><strong>${esc(doc.name)}</strong><p>@${esc(doc.subject)}${tags ? ` · ${tags}` : ""} · ${doc.chunks.length} passage${doc.chunks.length === 1 ? "" : "s"} · ${esc(new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }).format(new Date(doc.addedAt)))}</p><small>${esc(doc.summary || "Ready for local search and Coach questions.")}</small></span></button><div class="source-actions"><button class="${selected.has(doc.id) ? "is-selected" : ""}" data-toggle-coach-source="${esc(doc.id)}" aria-label="${selected.has(doc.id) ? "Remove from" : "Add to"} Coach sources">${selected.has(doc.id) ? "✓" : "＋"}</button><button data-ask-source="${esc(doc.id)}">Ask</button></div></article>`;
+    }).join("") : `<div class="library-empty"><h3>${librarySearch || libraryType !== "all" ? "No matching sources" : "No sources in this subject"}</h3><p>${librarySearch || libraryType !== "all" ? "Try a broader search or clear the filters." : "Add a work release, paper or note. Vidya will read and organize it locally."}</p>${librarySearch || libraryType !== "all" ? `<button class="secondary-button" data-clear-library-filters>Clear filters</button>` : `<button class="primary-button" data-trigger-upload>Choose material</button>`}</div>`;
     renderLatestDocument(); renderContext();
   }
 
@@ -1366,6 +1384,8 @@
 
   async function deleteSource() {
     if (!activeSourceId) return;
+    const sourceToRemove = libraryDocs.find(item => item.id === activeSourceId);
+    if (!sourceToRemove || !confirm(`Remove “${sourceToRemove.name}” from this device? This cannot be undone unless it exists in an encrypted backup.`)) return;
     await dbDelete(activeSourceId); libraryDocs = libraryDocs.filter(doc => doc.id !== activeSourceId);
     state.coachSourceIds = (state.coachSourceIds || []).filter(id => id !== activeSourceId);
     if (state.latestDocumentId === activeSourceId) state.latestDocumentId = libraryDocs[0]?.id || null;
@@ -1611,6 +1631,7 @@
       const hook = event.target.closest("[data-story-hook]"); if (hook) { const item = findFeedItem(hook.dataset.storyHook); toast(item.hook); return; }
       const url = event.target.closest("[data-source-url]"); if (url) { window.open(url.dataset.sourceUrl, "_blank", "noopener"); return; }
       if (event.target.closest("[data-trigger-upload]")) { $("#libraryFileInput").click(); return; }
+      if (event.target.closest("[data-clear-library-filters]")) { librarySearch = ""; libraryType = "all"; $("#librarySearchInput").value = ""; $("#libraryTypeFilter").value = "all"; renderLibrary(); return; }
       const prompt = event.target.closest("[data-prompt]"); if (prompt) { $("#coachInput").value = prompt.dataset.prompt; sendCoach(); return; }
     });
 
@@ -1665,11 +1686,17 @@
     $("#libraryTypeFilter").addEventListener("change", event => { libraryType = event.target.value; renderLibrary(); });
     $("#librarySort").addEventListener("change", event => { librarySort = event.target.value; renderLibrary(); });
     $("#sourcePickerSearch").addEventListener("input", event => renderSourcePicker(event.target.value));
+    $("#sourcePickerList").addEventListener("change", event => {
+      if (!event.target.matches('input[type="checkbox"]') || !event.target.checked) return;
+      if ($$('#sourcePickerList input:checked').length <= 5) return;
+      event.target.checked = false; toast("Choose up to five sources for one focused question");
+    });
     $("#sourcePickerForm").addEventListener("submit", event => { event.preventDefault(); const ids = $$('#sourcePickerList input:checked').map(input => input.value).slice(0, 5); setCoachSources(ids); closeDialog($("#sourcePickerDialog")); toast(ids.length ? `${ids.length} source${ids.length === 1 ? "" : "s"} attached to Coach` : "Coach will search the active @Subject"); setTimeout(() => $("#coachInput").focus(), 80); });
     $("#clearCoachSources").addEventListener("click", () => { setCoachSources([]); renderSourcePicker($("#sourcePickerSearch").value); });
     $("#interestSearchInput").addEventListener("input", event => { interestSearch = event.target.value; renderInterests(); });
     $("#settingsForm").addEventListener("submit", saveSettings);
     $("#testEngineButton").addEventListener("click", testSecureEngine);
+    $("#openApiGuide").addEventListener("click", () => openDialog("apiGuideDialog"));
     $("#resetCostMonitor").addEventListener("click", () => { if (!confirm("Reset this device's local AI usage estimate? Provider billing records will not be changed.")) return; state.usageEvents = []; saveState(); renderCostMonitor(); toast("Local cost estimate reset"); });
     $("#themePicker").addEventListener("click", event => { const button = event.target.closest("[data-theme]"); if (!button) return; state.theme = button.dataset.theme; saveState(); applyTheme(); });
     $("#cultureTaskButton").addEventListener("click", () => { const task = createTaskFromIntent({ clean: "Use one curiosity-first disagreement in a conversation", subject: "Canadian Culture", tags: ["workplace", "social-cues"], due: plusHours(5), priority: "low", estimate: 5 }, "Culture lesson"); closeDialog($("#cultureDialog")); toast("Culture practice added to Today", "Undo", () => { state.tasks = state.tasks.filter(item => item.id !== task.id); saveState(); renderTasks(); }); });
