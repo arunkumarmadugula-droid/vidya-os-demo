@@ -1236,11 +1236,39 @@
     return { previousId: previous.id, previousName: previous.name, added };
   }
 
+  function errorMessage(error, fallback = "The browser could not read this file") {
+    if (typeof error === "string" && error.trim()) return error.trim();
+    const candidates = [error?.message, error?.reason?.message, error?.reason, error?.statusText];
+    const detail = candidates.find(value => typeof value === "string" && value.trim());
+    if (detail) return detail.trim();
+    if (error?.name && error.name !== "Error" && error.name !== "Event") return error.name;
+    return fallback;
+  }
+
+  function scriptLoadError(url) {
+    const fileModeHint = location.protocol === "file:"
+      ? " Open Vidya from its HTTPS GitHub Pages address or from localhost; browser file mode can block document readers."
+      : " Check your connection, then try again.";
+    return new Error(`The document reader (${url}) could not load.${fileModeHint}`);
+  }
+
   function loadScript(url) {
     return new Promise((resolve, reject) => {
-      const existing = document.querySelector(`script[src="${url}"]`);
-      if (existing) { if (existing.dataset.ready) resolve(); else existing.addEventListener("load", resolve, { once: true }); return; }
-      const script = document.createElement("script"); script.src = url; script.onload = () => { script.dataset.ready = "1"; resolve(); }; script.onerror = reject; document.head.appendChild(script);
+      let existing = document.querySelector(`script[src="${url}"]`);
+      if (existing?.dataset.failed) { existing.remove(); existing = null; }
+      if (existing) {
+        if (existing.dataset.ready) resolve();
+        else {
+          existing.addEventListener("load", resolve, { once: true });
+          existing.addEventListener("error", () => reject(scriptLoadError(url)), { once: true });
+        }
+        return;
+      }
+      const script = document.createElement("script");
+      script.src = url;
+      script.onload = () => { script.dataset.ready = "1"; resolve(); };
+      script.onerror = () => { script.dataset.failed = "1"; reject(scriptLoadError(url)); };
+      document.head.appendChild(script);
     });
   }
 
@@ -1248,20 +1276,30 @@
     const ext = file.name.split(".").pop().toLowerCase();
     if (["txt", "md", "csv", "json", "log"].includes(ext)) return file.text();
     if (ext === "pdf") {
-      await loadScript("vendor/pdf.min.js");
-      window.pdfjsLib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js";
-      const pdf = await window.pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
-      let text = "";
-      for (let pageNumber = 1; pageNumber <= Math.min(pdf.numPages, 400); pageNumber += 1) {
-        const page = await pdf.getPage(pageNumber); const content = await page.getTextContent();
-        text += `\n[Page ${pageNumber}]\n${content.items.map(item => item.str).join(" ")}\n`;
-        if (text.length > 1_500_000) break;
+      try {
+        await loadScript("vendor/pdf.min.js");
+        if (!window.pdfjsLib?.getDocument) throw new Error("The PDF reader was not initialized");
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc = new URL("vendor/pdf.worker.min.js", document.baseURI).href;
+        const pdf = await window.pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+        let text = "";
+        for (let pageNumber = 1; pageNumber <= Math.min(pdf.numPages, 400); pageNumber += 1) {
+          const page = await pdf.getPage(pageNumber); const content = await page.getTextContent();
+          text += `\n[Page ${pageNumber}]\n${content.items.map(item => item.str).join(" ")}\n`;
+          if (text.length > 1_500_000) break;
+        }
+        return text;
+      } catch (error) {
+        throw new Error(`PDF could not be read: ${errorMessage(error, "the PDF reader returned no details")}`);
       }
-      return text;
     }
     if (ext === "docx") {
-      await loadScript("vendor/mammoth.browser.min.js");
-      const result = await window.mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() }); return result.value || "";
+      try {
+        await loadScript("vendor/mammoth.browser.min.js");
+        if (!window.mammoth?.extractRawText) throw new Error("The Word document reader was not initialized");
+        const result = await window.mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() }); return result.value || "";
+      } catch (error) {
+        throw new Error(`Word document could not be read: ${errorMessage(error, "the document reader returned no details")}`);
+      }
     }
     throw new Error(`.${ext} is not supported`);
   }
@@ -1291,7 +1329,7 @@
         const previous = libraryDocs.find(item => item.subject === selected && releaseBaseName(item.name) && releaseBaseName(item.name) === releaseBaseName(doc.name));
         if (previous) doc.comparison = compareDocuments(previous, doc);
         await dbPut(doc); libraryDocs.unshift(doc); state.latestDocumentId = doc.id; releaseTaskSuggestions(doc); added += 1;
-      } catch (error) { failures.push(`${file.name}: ${error.message}`); }
+      } catch (error) { failures.push(`${file.name}: ${errorMessage(error, "The browser could not read this file")}`); }
     }
     saveState(); renderLibrary(); renderTasks(); renderContext();
     uploadButtons.forEach(button => { button.disabled = false; });
